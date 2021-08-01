@@ -1,0 +1,802 @@
+#!/bin/sh
+#---help---
+# Usage:
+#     akms (install | build) [options] (<module> | <srcdir>)
+#     akms uninstall [options] <module>[/<version>]
+#     akms status [options] [<module>[/<version>]]
+#     akms [-h] [--help] [-V]
+#
+# Actions:
+#     install       Build and install module(s) into /lib/modules, unless already
+#                   built (or -r is specified) or installed.
+#
+#     build         Build module(s), unless already built (or -r is specified),
+#                   without installing them.
+#
+#     uninstall     Uninstall module(s) from /lib/modules.
+#
+#     status        Show status of modules.
+#
+# Arguments:
+#     <module>      Name of the module to (un)install or show in status.
+#                   Use 'all' to (un)install all modules.
+#
+#     <srcdir>      Location of directory with AKMBUILD to install.
+#
+#     <version>     Version of the module to uninstall or show in status.
+#                   Default is 'installed' for uninstall and 'all' for status.
+#
+# Common options:
+#     -k --[no]-keep
+#          Whether to keep uninstalled modules in /var/lib/akms. Default is to not
+#          keep unless overriden in /etc/akms.conf.
+#  
+#     -q --quiet
+#          Be quiet, print only warn and error messages.
+#  
+#     -v --verbose
+#          Be verbose, print even debug messages.
+#  
+#     -V --version
+#          Print program name & version and exit.
+#  
+#     -h --help
+#          Print this message and exit.
+#
+# Options for install and build:
+#     -k --kernel <kernel>
+#          Specify for which kernel to install the module(s). Use 'all' to install
+#          for all installed kernels (based on /usr/share/kernel/). Defaults to
+#          the installed kernel with the same flavor as the currently running
+#          kernel.
+#
+#     -r --rebuild
+#          Rebuild and install the module(s) even if they are already built.
+#
+#        --[no-]overlay
+#          Whether to install build dependencies into an overlay (OverlayFS)
+#          created on top of /, or on the host system. Default is to use overlay
+#          unless disabled in /etc/akms.conf.
+#
+#        --skip-cleanup
+#          Don't unmount and delete root overlay used for building and don't
+#          uninstall build dependencies.
+#
+# Options for uninstall:
+#     -f --force
+#          Uninstall module's files from /lib/modules even if they are different
+#          from the ones stored in /var/lib/akms.
+#
+#     -k --kernel <kernel>
+#          Specify from which kernel to uninstall the module(s). Use 'all' to
+#          uninstall from all kernels where the module(s) is/are installed.
+#          Defaults to the installed kernel with the same flavor as the currently
+#          running kernel.
+#
+# Options for status:
+#     -k --kernel <kernel>
+#          Filter the output for the specified kernel. Defaults to 'all'.
+#
+# Homepage: https://github.com/jirutka/akms
+#---help---
+
+# NOTE: This script intentionally doen't use `-e` because shell ignores `-e`
+# when a conditional-like statement is inside the call stack. And that's
+# most of this script.
+# See http://mywiki.wooledge.org/BashFAQ/105 (applies to all POSIX shells)
+set -uo pipefail
+
+readonly PROGNAME='akms'
+readonly VERSION='0.0.0'
+
+readonly CFG_FILE='/etc/akms.conf'
+readonly DEFAULT_MODULES_SRC_DIR='/etc/akms.d'
+readonly KERNELS_SRC_DIR='/usr/src'
+readonly MODULES_BASE_DIR='/lib/modules'
+readonly SCRIPTS_DIR='/usr/libexec/akms'
+readonly STATE_DIR='/var/lib/akms'
+
+readonly AKMBUILD_VARS_REQUIRED='built_modules modname modver'
+readonly AKMBUILD_VARS="$AKMBUILD_VARS_REQUIRED makedepends"
+readonly APK_VIRT=".$PROGNAME-build"
+readonly DEFAULT_PATH='/usr/local/bin:/usr/bin:/bin'
+readonly TRAP_SIGNALS='EXIT HUP INT TERM'
+
+LOG_ENABLED_LEVELS=' err warn info '
+BUILD_ROOT=
+
+
+# Prints help message.
+help() {
+	sed -n '/^#---help---/,/^#---help---/p' "$0" | sed 's/^# \?//; 1d;$d;'
+}
+
+# Cleanups resources before exiting the script.
+cleanup() {
+	set +u
+	trap '' $TRAP_SIGNALS  # unset trap to avoid loop
+
+	if ! $OPT_SKIP_CLEANUP && ! [ -d "$TEMP_DIR"/overlay ]; then
+		apk info -q --installed "$APK_VIRT" && apk del --no-progress "$APK_VIRT"
+	fi
+
+	if [ -d "$TEMP_DIR"/overlay ]; then
+		if $OPT_SKIP_CLEANUP; then
+			log warn "Root overlay left mounted at $TEMP_DIR/overlay, unmount it and remove manually!"
+			return
+		fi
+
+		log debug "Unmounting root overlay $TEMP_DIR/overlay"
+		umount -f "$TEMP_DIR"/overlay || {
+			err "Failed to umount root overlay at $TEMP_DIR/overlay, unmount it and remove manually!"
+			return
+		}
+	fi
+
+	if [ -d "$TEMP_DIR" ]; then
+		rm -Rf "$TEMP_DIR"
+	fi
+}
+
+# Logs the given message to STDERR, if the specified log level is enabled.
+#
+# $1: log level (err, warn, info, or debug)
+# $*: message
+# stderr: decorated message
+log() {
+	local level=$1; shift
+
+	case "$LOG_ENABLED_LEVELS" in
+		*" $level "*) ;;  # continue
+		*) return;;
+	esac
+
+	local prefix=
+	case "$level" in
+		warn) prefix='WARNING: ';;
+		err) prefix='ERROR: ';;
+	esac
+
+	printf "$PROGNAME: $prefix%s\n" "$@" >&2
+}
+err() {
+	log err "$@"
+}
+
+# $1: this log level and higer will be enabled (err, warn, info, or debug)
+# vars-out: LOG_ENABLED_LEVELS
+setup_logger() {
+	local level=$1
+
+	local l levels=
+	for l in err warn info debug; do
+		levels="$levels $l "
+		[ $l = $level ] && break
+	done
+
+	readonly LOG_ENABLED_LEVELS=$levels
+}
+
+# Converts the given value to 'true', or 'false'.
+# $1: bool-like value
+# status: 0
+# stdout: true or false
+to_bool() {
+	case "$1" in
+		yes | true | 1) echo true;;
+		*) echo false;;
+	esac
+}
+
+# Runs given command or script as unprivileged user $BUILD_ROOT.
+# If $BUILD_ROOT is set, it will be run inside a bubblewrap container
+# started at $BUILD_ROOT.
+#
+# usage: [-c] <cmd|script> [name=value]...
+doas_unpriv() {
+	local opts=
+	if [ "$1" = '-c' ]; then
+		opts=$1; shift
+	fi
+	local cmd=$1; shift
+
+	${BUILD_ROOT:+_bwrap "$BUILD_ROOT" --} \
+		/usr/bin/env -i PATH="$DEFAULT_PATH" "$@" \
+		/bin/su -s /bin/sh "$BUILD_USER" $opts "$cmd"
+}
+
+# Runs bubblewrap with predefined options and the given arguments.
+#
+# NOTE: The main reason for using bubblewrap instead of chroot is just easier
+#   preparation and disposal.
+#
+# $1: location of the directory which should be binded at /
+# $@: arguments for bwrap
+_bwrap() {
+	local rootdir=$1; shift
+
+	bwrap \
+		--unshare-ipc \
+		--unshare-pid \
+		--unshare-net \
+		--unshare-uts \
+		--unshare-cgroup \
+		--bind "$rootdir" / \
+		--proc /proc \
+		--dev-bind /dev /dev \
+		--tmpfs /tmp \
+		--ro-bind /var/empty /home \
+		--die-with-parent \
+		$BWRAP_OPTS \
+		"$@"
+}
+
+# $1: location of the module's state directory
+# stdout: space-separated triplet: kernel modname modver
+statedir_to_triplet() {
+	echo "${1#$STATE_DIR}" | tr / ' '
+}
+
+# $1: kernel release (e.g. 5.10.53-0-lts)
+# stdout: space-separated parts: pkgver pkgrel flavor
+split_kernel_ver() {
+	local kernel=$1
+	local ver=${kernel%%-*}
+	local rel=${kernel#*-}; rel=${rel%%-*}
+	local flavor=${kernel#$ver-$rel-}
+
+	echo $ver $rel $flavor
+}
+
+# stdout: newline-separated kernel releases (e.g. 5.10.53-0-lts)
+list_installed_kernels() {
+	cat /usr/share/kernel/*/kernel.release 2>/dev/null
+}
+
+# Prints the installed kernel release with the same flavor as the currently
+# running kernel.
+#
+# NOTE: After you upgrade kernel, the installed kernel and the running kernel
+# are different until the system is restarted. That's why we don't simply use
+# `uname -r`.
+#
+# stdout: kernel release (e.g. 5.10.53-0-lts)
+current_installed_kernel() {
+	set -- $(split_kernel_ver $(uname -r))
+	cat /usr/share/kernel/$3/kernel.release 2>/dev/null
+}
+
+# $1: name and version of the package to check in format
+#     <pkgname>=<pkgver>-r<pkgrel>
+# status: 0 if the package exists, 1 otherwise
+# stderr: error output from apk(1)
+is_pkg_avail() {
+	local name=${1%=*}
+	local ver=${1#*=}
+
+	apk list -Ua "$name" | grep -qw "$name-$ver"
+}
+
+# Mounts a writable overlay (using OverlayFS) on top of / at path $1.
+#
+# $1: path where to mount the overlay
+mount_rootfs_overlay() {
+	local mountdir=$1
+
+	mkdir -p "$mountdir"/upperdir "$mountdir"/workdir
+	mount -t overlay overlay \
+		-o "lowerdir=/,upperdir=$mountdir/upperdir,workdir=$mountdir/workdir" \
+		"$mountdir"
+}
+
+# Writes state to the statedir.
+#
+# $1: new state
+# $2: location of the module's statedir; defaults to $statedir
+# vars-in: statedir (optional)
+write_state() {
+	local state=$1
+	local statedir=${2:-$statedir}
+
+	mkdir -p "$statedir"
+	echo "$state" > "$statedir"/state
+}
+
+# Reads state from the module's statedir.
+#
+# $1: location of the module's state directory; defaults to $statedir
+# stdout: the state or an empty string if not set
+read_state() {
+	local statedir=${1:-$statedir}
+
+	cat "$statedir"/state 2>/dev/null || echo ''
+}
+
+# Loads allowed variables defined in the specified AKMBUILD file into the
+# current shell and validates that all required variables are set.
+# The AKMBUILD is evaluated in a shell started as $BUILD_USER.
+#
+# $1: location of the AKMBUILD file
+# vars-in: kernel (optional), kernel_srcdir (optional)
+# env-out: see $AKMBUILD_VARS
+load_akmbuild() {
+	local akmbuild=$1
+
+	if ! [ -r "$akmbuild" ]; then
+		err "$akmbuild does not exist or not readable!"; return 1
+	fi
+	if ! sh -n "$akmbuild"; then
+		err "$akmbuild is not a valid shell script!"; return 1
+	fi
+
+	local var; for var in $AKMBUILD_VARS; do
+		eval "$var=''"
+	done
+
+	local vars; vars=$(
+		doas_unpriv -c ". '$akmbuild'; set" \
+			AKMBUILD=$akmbuild \
+			kernelver=${kernel:-} \
+			kernel_srcdir=${kernel_srcdir:-} \
+		| grep -E "^(${AKMBUILD_VARS// /|})="
+	)
+	if [ $? -ne 0 ]; then
+		err "Failed to evaluate $akmbuild"; return 1
+	fi
+
+	eval "$vars"
+
+	local var; for var in $AKMBUILD_VARS_REQUIRED; do
+		if ! eval "test -n \"\${$var:-}\""; then
+			err "$akmbuild: $var must be defined!"; return 1
+		fi
+	done
+}
+
+# Finds module state directories (i.e. built or installed modules) based on the
+# given criteria.
+#
+# $1: kernel release (e.g. 5.10.53-0-lts)
+# $2: module name or "all"
+# $3: module version or "all" (optional)
+# stdout: newline-separated list of module state directories
+find_statedirs() {
+	local kernel=$1
+	local modname=$2
+	local modver=${3:-}
+
+	[ "$kernel" = all ] && kernel=
+	[ "$modname" = all ] && modname=
+	[ "$modver" = all ] && modver=
+
+	local statedir
+	for statedir in "$STATE_DIR"/${kernel:-[0-9]*}/${modname:-[a-z]*}/${modver:-[0-9]*}; do
+		if ! [ -d "$statedir" ]; then
+			err "No modules found for kernel:${kernel:-*}, name:${modname:-*}, version:${modver:-*}"
+			return 1
+		fi
+		echo "$statedir"
+	done
+}
+
+
+#=================================  Install  ==================================
+
+# $1: specifies module to install by name, by location of the module's source
+#     directory, or "all" for all modules in $MODULES_SRC_DIR
+action_install() {
+	if [ $# -lt 1 ]; then
+		err "Missing argument: <module> | <srcdir> | all"; return 1
+	fi
+
+	local srcdirs
+	case "$1" in
+		.* | /*) srcdirs=$1;;
+		*) srcdirs=$(find_srcdirs "$1") || return 1;;
+	esac
+
+	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
+	[ "$kernel" = all ] && kernel=
+
+	local rc=0 srcdir
+	for kernel in ${kernel:-$(list_installed_kernels ||:)}; do
+		for srcdir in $srcdirs; do
+			build_and_install_module $srcdir $kernel || rc=$?
+		done
+	done
+	exit $rc
+}
+
+# $1: name of module to install or "all"
+# vars-need: OPT_*
+action_build() {
+	action_install "$@"
+}
+
+# $1: name of the module to find or "all" (optional)
+# stdout: newline-separated list of module source directories
+find_srcdirs() {
+	local modname=${1:-}
+
+	[ "$modname" = all ] && modname=
+
+	local srcdir; for srcdir in "$MODULES_SRC_DIR"/${modname:-[a-z]*}; do
+		if ! [ -d $srcdir ]; then
+			if [ "$modname" ]; then
+				err "Module $modname was not found in $MODULES_SRC_DIR"
+				return 1
+			fi
+			continue
+		fi
+		echo $srcdir
+	done
+}
+
+# $1: module source directory with AKMBUILD
+# $2: kernel release (e.g. 5.10.53-0-lts)
+build_and_install_module() (
+	# NOTE: Must not be local!
+	srcdir=$1
+	kernel=$2
+
+	load_akmbuild "$srcdir/AKMBUILD" || return 1
+
+	statedir="$STATE_DIR/$kernel/$modname/$modver"
+	mkdir -p "$statedir"
+
+	state=$(read_state)
+	$OPT_REBUILD && state=''
+
+	if [ "$state" != 'built' ] && [ "$state" != 'installed' ]; then
+		log info "Building module $modname $modver for kernel $kernel"
+
+		write_state 'building'
+		install_makedepends "$kernel" "$makedepends" && build_module || {
+			write_state 'failed'; return 1
+		}
+		write_state 'built'
+		state='built'
+		
+		[ "$ACTION" = build ] \
+			&& log info "Module $modname $modver for $kernel is built successfully"
+	fi
+
+	[ "$ACTION" = build ] && return
+
+	if [ "$state" = 'built' ] || ! verify_installed_files $statedir; then
+		log info "Installing module $modname $modver for kernel $kernel"
+
+		install_module $statedir || {
+			write_state 'failed'; return 1
+		}
+		write_state 'installed'
+		ln -fs ${statedir##*/} ${statedir%/*}/installed
+
+		/sbin/depmod $kernel || {
+			err 'depmod failed'; return 1
+		}
+		log info "Module $modname $modver for $kernel installed successfully"
+
+	elif [ "$state" = 'installed' ]; then
+		log info "Module $modname $modver for $kernel is already installed"
+	fi
+)  # ")" is not a typo!
+
+# $1: kernel release (e.g. 5.10.53-0-lts)
+# $2: ws-separated list of additional dependencies to install
+install_makedepends() {
+	local kernel=$1
+	local makedepends=${2:-}
+	
+	local apk_opts=${BUILD_ROOT:+--root $BUILD_ROOT}
+
+	[ "$makedepends" ] \
+		&& apk info $apk_opts -q --installed $makedepends \
+		&& makedepends=''
+
+	[ -d "${BUILD_ROOT}$KERNELS_SRC_DIR/linux-headers-$kernel" ] \
+		&& [ -z "$makedepends" ] \
+		&& return
+
+	local kdevpkg=$(
+		set -- $(split_kernel_ver "$kernel")
+		echo linux-$3-dev=$1-r$2
+	)
+
+	# Fail fast if kernel dev package is not available.
+	if ! is_pkg_avail "$kdevpkg"; then
+		err "Package $kdevpkg is not available in the repositories!"; return 1
+	fi
+
+	if $OPT_OVERLAY && ! [ "$BUILD_ROOT" ]; then
+		log debug "Mounting overlay in $TEMP_DIR/overlay"
+
+		mount_rootfs_overlay "$TEMP_DIR/overlay" || {
+			err "Failed to mount OverlayFS on top of / at $TEMP_DIR/overlay"
+			return 1
+		}
+
+		BUILD_ROOT="$TEMP_DIR/overlay"
+		apk_opts="--root $BUILD_ROOT"
+	
+		# Unlock apk database
+		echo '' > "$BUILD_ROOT"/lib/apk/db/lock
+	fi
+
+	log debug "Installing dependencies ${BUILD_ROOT:+"(in overlay)"}: $kdevpkg $makedepends"
+	apk add \
+		$apk_opts \
+		--virtual "$APK_VIRT" \
+		--no-progress \
+		--no-scripts \
+		"$kdevpkg" $makedepends
+	if [ $? -ne 0 ]; then
+		err 'Failed to install build dependencies'; return 1
+	fi
+}
+
+# vars-in: modname srcdir kernel statedir built_modules
+build_module() {
+	local builddir="${BUILD_ROOT}$statedir/build"
+	local kernel_srcdir="$KERNELS_SRC_DIR/linux-headers-$kernel"
+
+	rm -Rf "$builddir"
+	install -d -o "$BUILD_USER" "$builddir" || return 1
+
+	doas_unpriv "$SCRIPTS_DIR"/akms-build \
+		AKMBUILD="$srcdir/AKMBUILD" \
+		srcdir=$srcdir \
+		builddir=${builddir#$BUILD_ROOT} \
+		kernel_ver=$kernel \
+		kernel_srcdir=$kernel_srcdir \
+		LOG_LEVEL=$OPT_LOGLEVEL \
+		CFLAGS="$CFLAGS" \
+		LDFLAGS="$LDFLAGS" \
+		MAKEFLAGS="$MAKEFLAGS"
+	if [ $? -ne 0 ]; then
+		err "Failed to build module $modname $modver for $kernel" "examine $builddir"
+		return 1
+	fi
+
+	mkdir -p "$statedir"/modules
+	rm -f "$statedir"/modules/* 2>/dev/null ||:
+
+	local ko; for ko in $built_modules; do
+		if ! [ -f "$builddir/$ko" ]; then
+			err "[$modname] Missing file $ko!"; return 1
+		fi
+		cp "$builddir/$ko" "$statedir"/modules/ || return 1
+	done
+}
+
+# $1: location of the module's state directory
+# vars-in: see $AKMBUILD_VARS
+install_module() {
+	local statedir=$1
+	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
+
+	if [ -d ${statedir%/*}/latest ]; then
+		uninstall_module ${statedir%/*}/latest
+	fi
+
+	local kofile; for kofile in "$statedir"/modules/*; do
+		if ! [ -f "$kofile" ]; then
+			err "[$modname] No files found in $statedir/modules!"; return 1
+		fi
+		log debug "[$modname] Installing ${kofile##*/} to $destdir/"
+		install -D -m755 -t "$destdir"/ $kofile || return 1
+	done
+}
+
+
+#================================  Uninstall  =================================
+
+# $1: name of the module to uninstall or "all"
+action_uninstall() {
+	if [ $# -lt 1 ]; then
+		err "Missing argument: <module>[/<version>] | all"; return 1
+	fi
+
+	local modname modver
+	case "$1" in
+		*/*) modname=${1%%/*}; modver=${1#*/};;
+		*) modname=$1; modver='installed';;
+	esac
+	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
+
+	local statedirs
+	statedirs=$(find_statedirs "$kernel" "$modname" "$modver") || return 1
+
+	local rc=0 statedir
+	for statedir in $statedirs; do
+		statedir=$(readlink -f $statedir)
+		if ! verify_installed_files $statedir && ! $OPT_FORCE; then
+			rc=1
+			continue
+		fi
+		log info "Uninstalling module $modname (${statedir%%/*}) from kernel $kernel"
+		uninstall_module $statedir || rc=$?
+	done
+	exit $rc
+}
+
+# $1: location of the module's state directory
+uninstall_module() {
+	local statedir=$1
+
+	set -- $(statedir_to_triplet "$statedir")
+	local kernel=$1 modname=$2 modver=$3
+
+	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
+
+	local kofile koname
+	for kofile in "$statedir"/modules/*; do
+		if ! [ -e "$kofile" ]; then
+			err "[$modname] No files found in $statedir/modules!"; return 1
+		fi
+		koname=${kofile##*/}
+
+		[ -f "$destdir/$koname" ] || continue
+
+		log debug "[$modname] Removing $koname from $destdir"
+		rm "$destdir/$koname"
+	done
+
+	write_state 'built' "$statedir"
+	rm -f ${statedir%/*}/installed
+
+	if ! $OPT_KEEP_UNINSTALLED; then
+		log debug "[$modname] Deleting $statedir"
+		remove_statedir $statedir
+	fi
+}
+
+# $1: location of the module's state directory
+remove_statedir() {
+	local statedir=$1
+	local parentdir=${statedir%/*}
+
+	rm -Rf "$statedir"
+
+	while [ "$parentdir" != "$STATE_DIR" ]; do
+		rmdir "$parentdir" || break
+		parentdir=${parentdir%/*}
+	done
+}
+
+
+#=================================  Status  ===================================
+
+# $1: name of the module to show status for or "all" (optional)
+# stdout: status of modules
+action_status() {
+	local modname modver
+	case "${1:-}" in
+		'') modname='all'; modver='all';;
+		*/*) modname=${1%%/*}; modver=${1#*/};;
+		*) modname=$1; modver='all';;
+	esac
+
+	local statedir state
+	for statedir in $(find_statedirs "$OPT_KERNEL" "$modname" "$modver"); do
+		state=$(read_state $statedir) || continue
+
+		if [ "$state" = installed ]; then
+			verify_installed_files $statedir || state='corrupted'
+		fi
+		printf '%s\t%s\t%s\t%s\n' $(echo ${statedir#$STATE_DIR} | tr / ' ') "$state"
+	done
+}
+
+# $1: location of the module's state directory
+verify_installed_files() {
+	local statedir=$1
+
+	set -- $(statedir_to_triplet $statedir)
+	local kernel=$1 modname=$2 modver=$3
+
+	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
+
+	local ko koname rc=0
+	for ko in $statedir/modules/*; do
+		if ! [ -e "$ko" ]; then
+			err "[$modname] No files found in $statedir/modules!"; return 1
+		fi
+		koname=${ko##*/}
+
+		if ! [ -f "$destdir"/$koname ]; then
+			log warn "[$modname] File $koname is missing in $destdir!"
+			rc=1; continue
+		fi
+		if ! cmp "$destdir"/$koname $ko 2>/dev/null; then
+			log warn "[$modname] File $koname in $destdir is not from $modname-$modver for $kernel!"
+			rc=1
+		fi
+		log debug "[$modname] File $destdir/$koname is OK"
+	done
+	return $rc
+}
+
+
+#==================================  Main  ====================================
+
+ACTION=
+case "${1:-}" in
+	'') log err "Missing arguments, see '$PROGNAME -h'"; exit 1;;
+	-h | --help) help; exit 0;;
+	-*) ;;
+	*) ACTION=$1; shift;;
+esac
+
+# Defaults that may be overriden by $CFG_FILE.
+CFLAGS='-Os -fomit-frame-pointer'
+LDFLAGS=''
+MAKEFLAGS="-j$(nproc)"
+
+[ -f "$CFG_FILE" ] && . "$CFG_FILE"
+
+readonly BUILD_USER=${build_user:-akms}
+readonly BWRAP_OPTS=${bubblewrap_opts:-}
+readonly MODULES_DEST_PATH=${modules_dest_path:-/kernel/extra/akms}
+readonly MODULES_SRC_DIR=${modules_srcdir:-$DEFAULT_MODULES_SRC_DIR}
+readonly TEMP_DIR="${temp_dir:-/tmp/$PROGNAME}/$(date +%s)"
+
+OPT_FORCE=false
+OPT_KEEP_UNINSTALLED=$(to_bool "${keep_uninstalled:-false}")
+OPT_KERNEL=
+OPT_LOGLEVEL=${log_level:-info}
+OPT_OVERLAY=$(to_bool "${use_overlayfs:-true}")
+OPT_REBUILD=false
+OPT_SKIP_CLEANUP=false
+
+opts=$(getopt -n $PROGNAME \
+	-o fk:qrvVh \
+	-l force,keep,no-keep,kernel:,overlay,no-overlay,quiet,rebuild,skip-cleanup,verbose,version,help \
+	-- "$@") || exit 1
+eval set -- "$opts"
+
+while [ $# -gt 0 ]; do
+	n=1
+	case "$1" in
+		-f | --force) OPT_FORCE=true;;
+		-K | --keep) OPT_KEEP_UNINSTALLED=true;;
+		     --no-keep) OPT_KEEP_UNINSTALLED=false;;
+		-k | --kernel) OPT_KERNEL=$2; n=2;;
+		-q | --quiet) OPT_LOGLEVEL='warn';;
+		     --overlay) OPT_OVERLAY=true;;
+		     --no-overlay) OPT_OVERLAY=false;;
+		-r | --rebuild) OPT_REBUILD=true;;
+		     --skip-cleanup) OPT_SKIP_CLEANUP=true;;
+		-v | --verbose) OPT_LOGLEVEL='debug';;
+		-V | --version) echo "$PROGNAME $VERSION"; exit 0;;
+		-h | --help) help; exit 0;;
+		--) shift; break;;
+	esac
+	shift $n
+done
+
+if ! [ "$ACTION" ]; then
+	ACTION="${1:-}"; shift
+fi
+
+setup_logger "$OPT_LOGLEVEL"
+
+readonly ACTION OPT_FORCE OPT_KEEP_UNINSTALLED OPT_KERNEL OPT_LOGLEVEL
+readonly OPT_OVERLAY OPT_REBUILD OPT_SKIP_CLEANUP
+
+case "$ACTION" in
+	install | build | uninstall)
+		if [ "$(id -u)" -ne 0 ]; then
+			err 'Must be run as root!'; exit 1
+		fi
+		trap cleanup $TRAP_SIGNALS
+		action_$ACTION "$@"
+	;;
+	status)
+		action_$ACTION "$@"
+	;;
+	*)
+		err "Unknown action: $ACTION"
+		exit 1
+	;;
+esac

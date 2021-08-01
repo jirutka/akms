@@ -1,0 +1,21 @@
+#!/bin/sh
+set -euo pipefail
+
+build() {
+	default_build
+}
+
+cd "$builddir"
+
+. "$srcdir"/AKMBUILD
+
+default_build() {
+	touch "$builddir"/Makefile
+	make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+}
+
+if [ $LOG_LEVEL = warn ]; then
+	build > "$builddir"/make.log 2>&1
+else
+	build 2>&1 | tee "$builddir"/make.log
+fi
