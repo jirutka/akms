@@ -1,7 +1,7 @@
 #!/bin/sh
 #---help---
 # Usage:
-#     akms (install | build) [options] (<module> | <srcdir>)
+#     akms (install | build) [options] <srcdir>
 #     akms uninstall [options] <module>[/<version>]
 #     akms status [options] [<module>[/<version>]]
 #     akms [-h] [--help] [-V]
@@ -21,7 +21,10 @@
 #     <module>      Name of the module to (un)install or show in status.
 #                   Use 'all' to (un)install all modules.
 #
-#     <srcdir>      Location of directory with AKMBUILD to install.
+#     <srcdir>      Location of the source directory with AKMBUILD to install.
+#                   It may be an absolute path, (glob) name of a directory
+#                   inside $modules_srcdir (/usr/src by default), or 'all' to
+#                   install all modules found in $modules_srcdir.
 #
 #     <version>     Version of the module to uninstall or show in status.
 #                   Default is 'installed' for uninstall and 'all' for status.
@@ -90,7 +93,7 @@ readonly PROGNAME='akms'
 readonly VERSION='0.0.0'
 
 readonly CFG_FILE='/etc/akms.conf'
-readonly DEFAULT_MODULES_SRC_DIR='/etc/akms.d'
+readonly DEFAULT_MODULES_SRC_DIR='/usr/src'
 readonly KERNELS_SRC_DIR='/usr/src'
 readonly MODULES_BASE_DIR='/lib/modules'
 readonly SCRIPTS_DIR='/usr/libexec/akms'
@@ -382,11 +385,12 @@ find_statedirs() {
 
 #=================================  Install  ==================================
 
-# $1: specifies module to install by name, by location of the module's source
-#     directory, or "all" for all modules in $MODULES_SRC_DIR
+# $1: specifies module to install by location of the module's source directory,
+#     (full path or just a directory name inside $MODULES_SRC_DIR) or "all" for
+#     all modules in $MODULES_SRC_DIR
 action_install() {
 	if [ $# -lt 1 ]; then
-		err "Missing argument: <module> | <srcdir> | all"; return 1
+		err "Missing argument: <srcdir> | all"; return 1
 	fi
 
 	local srcdirs
@@ -413,23 +417,25 @@ action_build() {
 	action_install "$@"
 }
 
-# $1: name of the module to find or "all" (optional)
+# $1: name of the module's source directory (may be a glob) or "all" (optional)
+# status: 1 if no source directory was found, 0 otherwise
 # stdout: newline-separated list of module source directories
 find_srcdirs() {
-	local modname=${1:-}
+	local name=${1:-}
 
-	[ "$modname" = all ] && modname=
+	[ "$name" = all ] && name=
 
-	local srcdir; for srcdir in "$MODULES_SRC_DIR"/${modname:-[a-z]*}; do
-		if ! [ -d $srcdir ]; then
-			if [ "$modname" ]; then
-				err "Module $modname was not found in $MODULES_SRC_DIR"
-				return 1
-			fi
-			continue
+	local found=false srcdir
+	for srcdir in "$MODULES_SRC_DIR"/${name:-*}; do
+		if [ -f "$srcdir"/AKMBUILD ]; then
+			found=true
+			echo $srcdir
 		fi
-		echo $srcdir
 	done
+	if ! $found; then
+		err "No module found in $MODULES_SRC_DIR/$name"
+		return 1
+	fi
 }
 
 # $1: module source directory with AKMBUILD
@@ -614,7 +620,7 @@ action_uninstall() {
 			rc=1
 			continue
 		fi
-		log info "Uninstalling module $modname (${statedir%%/*}) from kernel $kernel"
+		log info "Uninstalling module $modname (${statedir##*/}) from kernel $kernel"
 		uninstall_module $statedir || rc=$?
 	done
 	exit $rc

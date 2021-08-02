@@ -28,11 +28,9 @@ install:
 		-e "s|/usr/libexec/akms|$(libexecdir)/$(PROGNAME)|" \
 		-e "s|/var/lib/akms|$(STATE_DIR)|" \
 		-e "s|/etc/akms\.conf|$(sysconfdir)/$(PROGNAME).conf|" \
-		-e "s|/etc/akms\.d|$(sysconfdir)/$(PROGNAME).d|" \
 		"$(DESTDIR)$(sbindir)/$(PROGNAME)"
 	$(INSTALL) -D -m755 akms-build "$(DESTDIR)$(libexecdir)/$(PROGNAME)/akms-build"
 	$(INSTALL) -D -m644 akms.conf "$(DESTDIR)$(sysconfdir)/$(PROGNAME).conf"
-	$(INSTALL) -d -m755 "$(DESTDIR)$(sysconfdir)/$(PROGNAME).d"
 	$(INSTALL) -d -m755 "$(DESTDIR)$(STATE_DIR)"
 
 #: Uninstall from $DESTDIR.
@@ -40,7 +38,6 @@ uninstall:
 	rm -f "$(DESTDIR)$(sbindir)/$(PROGNAME)"
 	rm -Rf "$(DESTDIR)$(libexecdir)/$(PROGNAME)"
 	rm -f "$(DESTDIR)$(sysconfdir)/$(PROGNAME).conf"
-	rmdir "$(DESTDIR)$(sysconfdir)/$(PROGNAME).d" || true
 	rmdir "$(DESTDIR)$(STATE_DIR)" || true
 
 #: Update version in the script and README.adoc to $VERSION.
