@@ -390,20 +390,25 @@ find_statedirs() {
 #     all modules in $MODULES_SRC_DIR
 action_install() {
 	if [ $# -lt 1 ]; then
-		err "Missing argument: <srcdir> | all"; return 1
+		err 'Missing argument: <srcdir> | all'; return 1
 	fi
 
 	local srcdirs
 	case "$1" in
 		.* | /*) srcdirs=$1;;
-		*) srcdirs=$(find_srcdirs "$1") || return 1;;
+		all) srcdirs=$(find_srcdirs 'all') || {
+			log info "No AKMBUILDs found in $MODULES_SRC_DIR/*"; return 0
+		};;
+		*) srcdirs=$(find_srcdirs "$1") || {
+			err "No AKMBUILD module found in $MODULES_SRC_DIR/$1"; return 1
+		};;
 	esac
 
 	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
 	[ "$kernel" = all ] && kernel=
 
 	local rc=0 srcdir
-	for kernel in ${kernel:-$(list_installed_kernels ||:)}; do
+	for kernel in ${kernel:-$(list_installed_kernels)}; do
 		for srcdir in $srcdirs; do
 			build_and_install_module $srcdir $kernel || rc=$?
 		done
@@ -418,24 +423,21 @@ action_build() {
 }
 
 # $1: name of the module's source directory (may be a glob) or "all" (optional)
-# status: 1 if no source directory was found, 0 otherwise
+# status: 1 if no source directory was found (and $1 is not "all"), 0 otherwise
 # stdout: newline-separated list of module source directories
 find_srcdirs() {
 	local name=${1:-}
 
 	[ "$name" = all ] && name=
 
-	local found=false srcdir
+	local rc=1 srcdir
 	for srcdir in "$MODULES_SRC_DIR"/${name:-*}; do
 		if [ -f "$srcdir"/AKMBUILD ]; then
-			found=true
+			rc=0
 			echo $srcdir
 		fi
 	done
-	if ! $found; then
-		err "No module found in $MODULES_SRC_DIR/$name"
-		return 1
-	fi
+	exit $rc
 }
 
 # $1: module source directory with AKMBUILD
