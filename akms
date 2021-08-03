@@ -362,6 +362,7 @@ load_akmbuild() {
 # $1: kernel release (e.g. 5.10.53-0-lts)
 # $2: module name or "all"
 # $3: module version or "all" (optional)
+# status: 1 if no such state directory was found, 0 otherwise
 # stdout: newline-separated list of module state directories
 find_statedirs() {
 	local kernel=$1
@@ -374,10 +375,7 @@ find_statedirs() {
 
 	local statedir
 	for statedir in "$STATE_DIR"/${kernel:-[0-9]*}/${modname:-[a-z]*}/${modver:-[0-9]*}; do
-		if ! [ -d "$statedir" ]; then
-			err "No modules found for kernel:${kernel:-*}, name:${modname:-*}, version:${modver:-*}"
-			return 1
-		fi
+		[ -d "$statedir" ] || return 1
 		echo "$statedir"
 	done
 }
@@ -613,7 +611,10 @@ action_uninstall() {
 	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
 
 	local statedirs
-	statedirs=$(find_statedirs "$kernel" "$modname" "$modver") || return 1
+	statedirs=$(find_statedirs "$kernel" "$modname" "$modver") || {
+		err "No modules found for kernel:${kernel:-*}, name:${modname:-*}, version:${modver:-*}"
+		return 1
+	}
 
 	local rc=0 statedir
 	for statedir in $statedirs; do
@@ -685,7 +686,7 @@ action_status() {
 		*) modname=$1; modver='all';;
 	esac
 
-	local statedir state
+	local found=false state statedir
 	for statedir in $(find_statedirs "$OPT_KERNEL" "$modname" "$modver"); do
 		state=$(read_state $statedir) || continue
 
@@ -693,7 +694,11 @@ action_status() {
 			verify_installed_files $statedir || state='corrupted'
 		fi
 		printf '%s\t%s\t%s\t%s\n' $(echo ${statedir#$STATE_DIR} | tr / ' ') "$state"
+		found=true
 	done
+	if ! $found; then
+		log info 'No modules found'; return 1
+	fi
 }
 
 # $1: location of the module's state directory
