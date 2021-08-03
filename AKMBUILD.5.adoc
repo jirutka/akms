@@ -1,0 +1,124 @@
+= AKMBUILD(5)
+Jakub Jirutka
+:doctype: manpage
+:repo-uri: https://github.com/jirutka/akms
+:issues-uri: {repo-uri}/issues
+:man-uri: {repo-uri}/blob/master/
+
+== NAME
+
+AKMBUILD - metadata and instructions to build a dynamic kernel module
+
+
+== SYNOPSIS
+
+**/usr/src/*/AKMBUILD**
+
+
+== DESCRIPTION
+
+An *AKMBUILD* file is used by *akms(1)* tool to build and install an out-of-tree dynamic kernel module on the user`'s system.
+It defines metadata such as the name and version of the module, list of the kernel objects to be installed and additional build dependencies.
+It may also contains the commands needed to build the module if the default one is not suitable.
+
+The *AKMBUILD* format is a POSIX shell script with pre-defined set of variables and functions, just like APKBUILD(5).
+
+
+== VARIABLES
+
+=== Required Variables
+
+The following variables MUST be defined by the author of the *AKMBUILD* file.
+
+*modname*::
+Specifies name of the module.
+This is typically the name of the APK package providing the source code of the module and the *AKMBUILD* file, but without the `-src` suffix.
+The same rules as for the APKBUILD `pkgname` applies.
+
+*modver*::
+Specifies the version of the module being built and installed.
+This is typically the version of the APK package providing the source code of the module and the *AKMBUILD* file (without `pkgrel`).
+The same rules as for the APKBUILD `pkgver` applies.
+
+*built_modules*::
+Specifies a space-separated list of kernel object files, as relative paths from the directory containing *AKMBUILD*, that are expected to be built and eventually installed into the kernel modules tree.
+
+
+=== Optional Variables
+
+The following variables MAY be defined by the author of the *AKMBUILD* file.
+
+*makedepends*::
+Specifies additional build dependencies for the module.
+The kernel source code (dev package) and base build toolchain (package `build-base` in Alpine Linux) are implicit and should not be defined here.
+
+
+=== Environment Variables
+
+The following variables are always provided by *akms(1)* and MUST NOT be overriden.
+
+*kernel_ver*::
+Specifies a full release version of the kernel for which the module is being built (e.g. `5.10.53-0-lts`).
+
+*kernel_srcdir*::
+Location of the kernel`'s source directory.
+
+The following variables are provided by *akms(1)* when running the *build* function and MUST NOT be overriden.
+
+*srcdir*::
+Location of the module`'s source directory containing *AKMBUILD*.
+This directory is read-only.
+
+*builddir*::
+Location of the directory where the module should be built.
+It is initially empty and it is the only writtable directory for building the module.
+
+*MAKEFLAGS*::
+Flags to give to make(1) to build the module.
+The default value of this variable can be specified in /etc/akms.conf.
+
+
+== FUNCTIONS
+
+The following functions MAY be overridden by the author of the *AKMBUILD* file.
+
+*build*::
+Builds the kernel module(s) in the *builddir* from the source files located in the *srcdir* directory.
++
+The default implementation calls function *default_build*:
++
+[source, sh]
+touch "$builddir"/Makefile
+make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+
+
+== EXAMPLES
+
+[source, sh]
+.AKMBUILD:
+----
+modname=rtw89
+modver=5_git20210715
+built_modules='rtw89core.ko rtw89pci.ko'
+
+build() {
+  touch "$builddir"/Makefile
+	make $MAKEFLAGS -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+}
+----
+
+
+== AUTHORS
+
+{author}
+
+
+== REPORTING BUGS
+
+Report bugs to the project`'s issue tracker at {issues-uri}.
+
+
+== SEE ALSO
+
+ifdef::backend-manpage[APKBUILD(5)]
+//ifndef::backend-manpage[{man-uri}/akms.1.adoc[akms(1)]]
