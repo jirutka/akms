@@ -343,7 +343,7 @@ load_akmbuild() {
 	local vars; vars=$(
 		doas_unpriv -c ". '$akmbuild'; set" \
 			AKMBUILD=$akmbuild \
-			kernelver=${kernel:-} \
+			kernel_ver=${kernel:-} \
 			kernel_srcdir=${kernel_srcdir:-} \
 		| grep -E "^(${AKMBUILD_VARS// /|})="
 	)
