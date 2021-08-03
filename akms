@@ -80,6 +80,10 @@
 #     -k --kernel <kernel>
 #          Filter the output for the specified kernel. Defaults to 'all'.
 #
+#     -s --state <state>
+#          Filter modules by state (building, built, installed, failed,
+#          corrupted, or all). Defaults to 'all'.
+#
 # Homepage: https://github.com/jirutka/akms
 #---help---
 
@@ -693,8 +697,10 @@ action_status() {
 		if [ "$state" = installed ]; then
 			verify_installed_files $statedir || state='corrupted'
 		fi
-		printf '%s\t%s\t%s\t%s\n' $(echo ${statedir#$STATE_DIR} | tr / ' ') "$state"
-		found=true
+		if [ "$OPT_STATE" = 'all' ] || [ "$state" = "$OPT_STATE" ]; then
+			printf '%s\t%s\t%s\t%s\n' $(echo ${statedir#$STATE_DIR} | tr / ' ') "$state"
+			found=true
+		fi
 	done
 	if ! $found; then
 		log info 'No modules found'; return 1
@@ -760,11 +766,12 @@ OPT_KERNEL=
 OPT_LOGLEVEL=${log_level:-info}
 OPT_OVERLAY=$(to_bool "${use_overlayfs:-true}")
 OPT_REBUILD=false
+OPT_STATE='all'
 OPT_SKIP_CLEANUP=false
 
 opts=$(getopt -n $PROGNAME \
-	-o fk:qrvVh \
-	-l force,keep,no-keep,kernel:,overlay,no-overlay,quiet,rebuild,skip-cleanup,verbose,version,help \
+	-o fk:qrs:vVh \
+	-l force,keep,no-keep,kernel:,overlay,no-overlay,quiet,rebuild,skip-cleanup,state:,verbose,version,help \
 	-- "$@") || exit 1
 eval set -- "$opts"
 
@@ -780,6 +787,7 @@ while [ $# -gt 0 ]; do
 		     --no-overlay) OPT_OVERLAY=false;;
 		-r | --rebuild) OPT_REBUILD=true;;
 		     --skip-cleanup) OPT_SKIP_CLEANUP=true;;
+		-s | --state) OPT_STATE=$2; n=2;;
 		-v | --verbose) OPT_LOGLEVEL='debug';;
 		-V | --version) echo "$PROGNAME $VERSION"; exit 0;;
 		-h | --help) help; exit 0;;
