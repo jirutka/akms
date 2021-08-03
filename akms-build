@@ -5,6 +5,8 @@ build() {
 	default_build
 }
 
+readonly builddir kernel_srcdir kernel_ver LOG_LEVEL
+
 cd "$builddir"
 
 . "$srcdir"/AKMBUILD
