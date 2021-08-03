@@ -461,7 +461,7 @@ build_and_install_module() (
 		log info "Building module $modname $modver for kernel $kernel"
 
 		write_state 'building'
-		install_makedepends "$kernel" "$makedepends" && build_module || {
+		install_makedepends "$kernel" "$MAKEDEPENDS $makedepends" && build_module || {
 			write_state 'failed'; return 1
 		}
 		write_state 'built'
@@ -496,7 +496,7 @@ build_and_install_module() (
 # $2: ws-separated list of additional dependencies to install
 install_makedepends() {
 	local kernel=$1
-	local makedepends=${2:-}
+	local makedepends=$2
 
 	local apk_opts=${BUILD_ROOT:+--root $BUILD_ROOT}
 
@@ -756,6 +756,7 @@ MAKEFLAGS="-j$(nproc)"
 
 readonly BUILD_USER=${build_user:-akms}
 readonly BWRAP_OPTS=${bubblewrap_opts:-}
+readonly MAKEDEPENDS=${makedepends:-build-base}
 readonly MODULES_DEST_PATH=${modules_dest_path:-/kernel/extra/akms}
 readonly MODULES_SRC_DIR=${modules_srcdir:-$DEFAULT_MODULES_SRC_DIR}
 readonly TEMP_DIR="${temp_dir:-/tmp/$PROGNAME}/$(date +%s)"
