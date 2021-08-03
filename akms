@@ -33,16 +33,16 @@
 #     -k --[no]-keep
 #          Whether to keep uninstalled modules in /var/lib/akms. Default is to not
 #          keep unless overriden in /etc/akms.conf.
-#  
+#
 #     -q --quiet
 #          Be quiet, print only warn and error messages.
-#  
+#
 #     -v --verbose
 #          Be verbose, print even debug messages.
-#  
+#
 #     -V --version
 #          Print program name & version and exit.
-#  
+#
 #     -h --help
 #          Print this message and exit.
 #
@@ -466,7 +466,7 @@ build_and_install_module() (
 		}
 		write_state 'built'
 		state='built'
-		
+
 		[ "$ACTION" = build ] \
 			&& log info "Module $modname $modver for $kernel is built successfully"
 	fi
@@ -497,7 +497,7 @@ build_and_install_module() (
 install_makedepends() {
 	local kernel=$1
 	local makedepends=${2:-}
-	
+
 	local apk_opts=${BUILD_ROOT:+--root $BUILD_ROOT}
 
 	[ "$makedepends" ] \
@@ -528,7 +528,7 @@ install_makedepends() {
 
 		BUILD_ROOT="$TEMP_DIR/overlay"
 		apk_opts="--root $BUILD_ROOT"
-	
+
 		# Unlock apk database
 		echo '' > "$BUILD_ROOT"/lib/apk/db/lock
 	fi
