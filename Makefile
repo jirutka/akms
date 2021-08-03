@@ -4,10 +4,14 @@ prefix        := /usr/local
 sbindir       := $(prefix)/sbin
 libexecdir    := $(prefix)/libexec
 localstatedir := /var
+mandir        := $(prefix)/share/man
 sysconfdir    := /etc
 
 STATE_DIR     := $(localstatedir)/lib/$(PROGNAME)
 
+MAN_FILES     := $(basename $(wildcard *.[1-9].adoc))
+
+ASCIIDOCTOR   := asciidoctor
 INSTALL       := install
 GIT           := git
 SED           := sed
@@ -15,14 +19,27 @@ SED           := sed
 MAKEFILE_PATH  = $(lastword $(MAKEFILE_LIST))
 
 
-#: Print list of targets.
+#: Print list of targets (the default target).
 help:
 	@printf '%s\n\n' 'List of targets:'
 	@$(SED) -En '/^#:.*/{ N; s/^#: (.*)\n([A-Za-z0-9_-]+).*/\2 \1/p }' $(MAKEFILE_PATH) \
 		| while read label desc; do printf '%-15s %s\n' "$$label" "$$desc"; done
 
+#: Build sources.
+build: man
+
+#: Convert man pages.
+man: $(MAN_FILES)
+
+#: Remove generated files.
+clean:
+	rm -f ./*.[1-9]
+
 #: Install into $DESTDIR.
-install:
+install: install-other install-man
+
+#: Install everything except the man pages into $DESTDIR.
+install-other:
 	$(INSTALL) -D -m755 akms "$(DESTDIR)$(sbindir)/$(PROGNAME)"
 	$(SED) -i \
 		-e "s|/usr/libexec/akms|$(libexecdir)/$(PROGNAME)|" \
@@ -32,6 +49,10 @@ install:
 	$(INSTALL) -D -m755 akms-build "$(DESTDIR)$(libexecdir)/$(PROGNAME)/akms-build"
 	$(INSTALL) -D -m644 akms.conf "$(DESTDIR)$(sysconfdir)/$(PROGNAME).conf"
 	$(INSTALL) -d -m755 "$(DESTDIR)$(STATE_DIR)"
+
+#: Install man pages into $DESTDIR/$mandir/man[1-9]/.
+install-man: man
+	$(INSTALL) -D -m644 -t $(DESTDIR)$(mandir)/man5/ $(filter %.5,$(MAN_FILES))
 
 #: Uninstall from $DESTDIR.
 uninstall:
@@ -58,4 +79,11 @@ release: .check-git-clean | bump-version
 	@test -z "$(shell $(GIT) status --porcelain)" \
 		|| { echo 'You have uncommitted changes!' >&2; exit 1; }
 
-.PHONY: help install uninstall bump-version release .check-git-clean
+.PHONY: help man clean install uninstall bump-version release .check-git-clean
+
+
+%.1: %.1.adoc
+	$(ASCIIDOCTOR) -b manpage -o $@ $<
+
+%.5: %.5.adoc
+	$(ASCIIDOCTOR) -b manpage -o $@ $<

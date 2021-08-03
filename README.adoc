@@ -8,12 +8,17 @@ TBD
 
 == Requirements
 
+.*Runtime*:
 * http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html[POSIX-sh] compatible shell with `pipefail` (e.g. Busybox ash, ZSH, bash, …)
 * `env`, `grep`, `install`, `mount`, `umount`, `sed`, `su`, `tr` (Busybox or GNU)
 * `depmod` from https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git[kmod]
 * https://gitlab.alpinelinux.org/alpine/apk-tools[apk-tools]
 * https://github.com/containers/bubblewrap[bubblewrap]
 * Linux kernel with OverlayFS and namespaces
+
+.*Build*:
+* https://www.gnu.org/software/make/[GNU Make]
+* http://asciidoctor.org/[Asciidoctor] (for building man pages)
 
 
 == Usage
