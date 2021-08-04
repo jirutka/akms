@@ -6,11 +6,13 @@ Jakub Jirutka
 :man-uri: {repo-uri}/blob/master/
 ifdef::backend-manpage[]
 :akms: pass:q[*akms(8)*]
+:akms-conf: pass:q[*akms.conf(5)*]
 :APKBUILD: pass:q[*APKBUILD(5)*]
 :make: pass:q[*make(1)*]
 endif::[]
 ifndef::backend-manpage[]
 :akms: {man-uri}/akms[akms(8)]
+:akms-conf: {man-uri}/akms.conf.5.adoc[akms.conf(5)]
 :APKBUILD: `APKBUILD(5)`
 :make: https://www.mankier.com/1/make[make(1)]
 endif::[]
@@ -86,7 +88,7 @@ It is initially empty and it is the only writtable directory for building the mo
 
 *MAKEFLAGS*::
 Flags to give to make(1) to build the module.
-The default value of this variable can be specified in /etc/akms.conf.
+The default value of this variable can be specified in {akms-conf}.
 
 
 == FUNCTIONS
@@ -132,3 +134,4 @@ Report bugs to the project`'s issue tracker at {issues-uri}.
 == SEE ALSO
 
 {APKBUILD}
+{akms-conf}

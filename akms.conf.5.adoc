@@ -1,0 +1,137 @@
+= akms.conf(5)
+Jakub Jirutka
+:doctype: manpage
+:repo-uri: https://github.com/jirutka/akms
+:issues-uri: {repo-uri}/issues
+:man-uri: {repo-uri}/blob/master/
+ifdef::backend-manpage[]
+:AKMBUILD: pass:q[*AKMBUILD(5)*]
+:akms: pass:q[*akms(8)*]
+:bwrap: pass:q[*bwrap(1)*]
+:make: pass:q[*make(1)*]
+endif::[]
+ifndef::backend-manpage[]
+:AKMBUILD: {man-uri}/AKMBUILD.5.adoc[AKMBUILD(5)]
+:akms: {man-uri}/akms[akms(8)]
+:bwrap: https://www.mankier.com/1/bwrap[bwrap(1)]
+:make: https://www.mankier.com/1/make[make(1)]
+endif::[]
+
+
+== NAME
+
+akms.conf - configuration file for {akms}
+
+
+== SYNOPSIS
+
+*/etc/akms.conf*
+
+
+== DESCRIPTION
+
+*akms.conf* is the configuration file for {akms}.
+
+It is a POSIX shell script with pre-defined set of variables that may be defined to adjust akms`' behaviour.
+It SHOULD NOT define any functions, variables other than those specified in this page or execute any non-trivial commands.
+
+
+== VARIABLES
+
+The following variables MAY be defined by the user to configure {akms}.
+
+*bubblewrap_opts*::
+Additional options that will be passed to {bwrap} to create a disposable "`container`" for building modules.
+This "`container`" is created on the overlay (OverlayFS) of the host'`s `/` (the root file system) -- it'`s basically a disposable snapshot and {bwrap} is used as an alternative to `chroot(1)`.
++
+You may need to bind mount more filesystems to the "`container`" if you have a more complicated setup, such as `/usr` and `/var` on different file systems or subvolumes.
+Please note that `/home` is implicitly "`hidden`" by bind mounting `/var/empty` readonly to `/home`.
+Refer to {bwrap} for available options.
++
+This option is effective only when *use_overlayfs* is `"yes"`.
+
+*build_user*::
+Specifies the system user to switch to for loading {AKMBUILD} files and building modules.
++
+The default value is `"akms"`.
+
+*disable_trigger*::
+This option allows to disable the APK trigger installed by the `akms` package.
+This trigger automatically builds each kernel module with an {AKMBUILD} file installed via `apk(8)` into the *modules_srcdir*.
++
+The default value is `"no"`.
+
+*keep_uninstalled*::
+Specifies whether to keep uninstalled modules in the state directory `/var/lib/akms`.
++
+If set to `"no"`, the built kernel objects and metadata will be deleted from the state directory after a particular module version is uninstalled from `/lib/modules`.
+This happens when the module is explicitly uninstalled from `/lib/modules` using _akms uninstall_ or another version is of the module is installed for the same kernel using _akms install_.
+If set to `"yes"`, the built kernel objects and metadata are kept in the state directory, just the state is changed to `built`.
++
+The default value is `"no"`.
+This option can be overridden using {akms} option `--keep` or `--no-keep`, respectively.
+
+*log_level*::
+Specifies the default logging level.
+Any messages with level lower than the specified level will be discarded.
+Allowed values are: `"error"`, `"warn"`, `"info"`, or `"debug"`.
++
+The default value is `"info"`.
+This option can be overridden using {akms} options `--quiet` (sets level `"warn"`) and `--verbose` (sets level `"debug"`).
+
+*makedepends*::
+A space-separated list of dependencies (APK packages) needed for building kernel modules.
+These dependencies will be automatically installed into the root overlay (or the host system if *use_overlayfs* is set to `"no"`) before executing AKMBUILD`'s `build` function.
++
+The development package with sources for particular kernel is added automatically to the list and SHOULD NOT be specified here.
++
+The default value is `"build-base"`.
+
+*modules_dest_path*::
+Specifies the location inside `/lib/modules/<kernelver>/` where the kernel object files will be installed.
+It MUST start with `/` and SHOULD start with `/kernel`.
++
+The default value is `"/kernel/extra/akms"`.
+
+*modules_srcdir*::
+Specifies the location of the directory where to look for the directories with {AKMBUILD} and source files of the kernel modules that can be built and installed.
+It is not required for this directory to contain only directories with the sources for kernel modules -- directories without {AKMBUILD} file are ignored by {akms}.
++
+The default value is `"/usr/src"`.
+
+*temp_dir*::
+Specifies the base location for a temporary directory where the root overlay will be created.
+If the directory doesn`'t exist, it will be created when needed.
+There must be enough space for installing the build dependencies (typically hundreds of MiB), unless they are already installed on the system or *use_overlayfs* is set to `"no"`.
++
+Since the default location is inside `/tmp`, which is typically a `tmpfs` (i.e. in RAM), you should change it to e.g. `/var/tmp` if your system runs on low RAM.
++
+The default value is `"/tmp/akms"`.
+
+*use_overlayfs*::
+Specifies whether to install the module`'s build dependencies into a disposable overlay (OverlayFS) created on top of `/`, or directly on the host system.
++
+*WARNING:* This is necessary for building modules automatically using APK triggers (note: kernel-hooks use triggers too), unless you have all the build dependencies installed (i.e. no additional packages are needed).
++
+The default value is `"yes"`.
+
+*MAKEFLAGS*::
+Specifies the flags to be passed to `make(1)` to build a kernel module.
++
+The default value is `"-j$(nproc)"`.
+
+
+== AUTHORS
+
+{author}
+
+
+== REPORTING BUGS
+
+Report bugs to the project`'s issue tracker at {issues-uri}.
+
+
+== SEE ALSO
+
+{AKMBUILD}
+{akms}
