@@ -4,6 +4,17 @@ Jakub Jirutka
 :repo-uri: https://github.com/jirutka/akms
 :issues-uri: {repo-uri}/issues
 :man-uri: {repo-uri}/blob/master/
+ifdef::backend-manpage[]
+:akms: pass:q[*akms(8)*]
+:APKBUILD: pass:q[*APKBUILD(5)*]
+:make: pass:q[*make(1)*]
+endif::[]
+ifndef::backend-manpage[]
+:akms: {man-uri}/akms[akms(8)]
+:APKBUILD: `APKBUILD(5)`
+:make: https://www.mankier.com/1/make[make(1)]
+endif::[]
+
 
 == NAME
 
@@ -17,11 +28,11 @@ AKMBUILD - metadata and instructions to build a dynamic kernel module
 
 == DESCRIPTION
 
-An *AKMBUILD* file is used by *akms(1)* tool to build and install an out-of-tree dynamic kernel module on the user`'s system.
+An *AKMBUILD* file is used by {akms} tool to build and install an out-of-tree dynamic kernel module on the user`'s system.
 It defines metadata such as the name and version of the module, list of the kernel objects to be installed and additional build dependencies.
 It may also contains the commands needed to build the module if the default one is not suitable.
 
-The *AKMBUILD* format is a POSIX shell script with pre-defined set of variables and functions, just like APKBUILD(5).
+The *AKMBUILD* format is a POSIX shell script with pre-defined set of variables and functions, just like {APKBUILD}.
 
 
 == VARIABLES
@@ -55,7 +66,7 @@ The kernel source code (dev package) and base build toolchain (package `build-ba
 
 === Environment Variables
 
-The following variables are always provided by *akms(1)* and MUST NOT be overriden.
+The following variables are always provided by {akms} and MUST NOT be overriden.
 
 *kernel_ver*::
 Specifies a full release version of the kernel for which the module is being built (e.g. `5.10.53-0-lts`).
@@ -63,7 +74,7 @@ Specifies a full release version of the kernel for which the module is being bui
 *kernel_srcdir*::
 Location of the kernel`'s source directory.
 
-The following variables are provided by *akms(1)* when running the *build* function and MUST NOT be overriden.
+The following variables are provided by {akms} when running the *build* function and MUST NOT be overriden.
 
 *srcdir*::
 Location of the module`'s source directory containing *AKMBUILD*.
@@ -120,5 +131,4 @@ Report bugs to the project`'s issue tracker at {issues-uri}.
 
 == SEE ALSO
 
-ifdef::backend-manpage[APKBUILD(5)]
-//ifndef::backend-manpage[{man-uri}/akms.1.adoc[akms(1)]]
+{APKBUILD}
