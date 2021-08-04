@@ -20,7 +20,7 @@ endif::[]
 
 == NAME
 
-akms.conf - configuration file for {akms}
+akms.conf - configuration file for akms(8)
 
 
 == SYNOPSIS
