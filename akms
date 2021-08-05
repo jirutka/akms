@@ -342,7 +342,6 @@ load_akmbuild() {
 
 	local vars; vars=$(
 		doas_unpriv -c ". '$akmbuild'; set" \
-			AKMBUILD=$akmbuild \
 			kernel_ver=${kernel:-} \
 			kernel_srcdir=${kernel_srcdir:-} \
 		| grep -E "^(${AKMBUILD_VARS// /|})="
@@ -554,7 +553,6 @@ build_module() {
 	install -d -o "$BUILD_USER" "$builddir" || return 1
 
 	doas_unpriv "$SCRIPTS_DIR"/akms-build \
-		AKMBUILD="$srcdir/AKMBUILD" \
 		srcdir=$srcdir \
 		builddir=${builddir#$BUILD_ROOT} \
 		kernel_ver=$kernel \
