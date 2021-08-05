@@ -342,8 +342,8 @@ load_akmbuild() {
 
 	local vars; vars=$(
 		doas_unpriv -c ". '$akmbuild'; set" \
-			kernel_ver=${kernel:-} \
-			kernel_srcdir=${kernel_srcdir:-} \
+			kernel_ver="${kernel:-}" \
+			kernel_srcdir="${kernel_srcdir:-}" \
 		| grep -E "^(${AKMBUILD_VARS// /|})="
 	)
 	if [ $? -ne 0 ]; then
@@ -553,11 +553,11 @@ build_module() {
 	install -d -o "$BUILD_USER" "$builddir" || return 1
 
 	doas_unpriv "$SCRIPTS_DIR"/akms-build \
-		srcdir=$srcdir \
-		builddir=${builddir#$BUILD_ROOT} \
-		kernel_ver=$kernel \
-		kernel_srcdir=$kernel_srcdir \
-		LOG_LEVEL=$OPT_LOGLEVEL \
+		srcdir="$srcdir" \
+		builddir="${builddir#$BUILD_ROOT}" \
+		kernel_ver="$kernel" \
+		kernel_srcdir="$kernel_srcdir" \
+		LOG_LEVEL="$OPT_LOGLEVEL" \
 		MAKEFLAGS="$MAKEFLAGS"
 	if [ $? -ne 0 ]; then
 		err "Failed to build module $modname $modver for $kernel" "examine $builddir"
