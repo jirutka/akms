@@ -6,6 +6,12 @@
 TBD
 
 
+== Manual Pages
+
+* link:akms.conf.5.adoc[akms.conf(5)]
+* link:AKMBUILD.5.adoc[AKMBUILD(5)]
+
+
 == Requirements
 
 .*Runtime*:
