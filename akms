@@ -558,8 +558,6 @@ build_module() {
 		kernel_ver=$kernel \
 		kernel_srcdir=$kernel_srcdir \
 		LOG_LEVEL=$OPT_LOGLEVEL \
-		CFLAGS="$CFLAGS" \
-		LDFLAGS="$LDFLAGS" \
 		MAKEFLAGS="$MAKEFLAGS"
 	if [ $? -ne 0 ]; then
 		err "Failed to build module $modname $modver for $kernel" "examine $builddir"
@@ -746,8 +744,6 @@ case "${1:-}" in
 esac
 
 # Defaults that may be overriden by $CFG_FILE.
-CFLAGS='-Os -fomit-frame-pointer'
-LDFLAGS=''
 MAKEFLAGS="-j$(nproc)"
 
 [ -f "$CFG_FILE" ] && . "$CFG_FILE"
