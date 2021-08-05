@@ -14,6 +14,7 @@ See the following manual pages for more information.
 
 == Manual Pages
 
+* link:akms.8.adoc[akms(8)]
 * link:akms.conf.5.adoc[akms.conf(5)]
 * link:AKMBUILD.5.adoc[AKMBUILD(5)]
 

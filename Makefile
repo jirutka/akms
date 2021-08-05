@@ -56,6 +56,7 @@ install-other:
 #: Install man pages into $DESTDIR/$mandir/man[1-9]/.
 install-man: man
 	$(INSTALL) -D -m644 -t $(DESTDIR)$(mandir)/man5/ $(filter %.5,$(MAN_FILES))
+	$(INSTALL) -D -m644 -t $(DESTDIR)$(mandir)/man8/ $(filter %.8,$(MAN_FILES))
 
 #: Uninstall from $DESTDIR.
 uninstall:
@@ -86,8 +87,8 @@ release: .check-git-clean | bump-version
 .PHONY: help man clean install uninstall bump-version release .check-git-clean
 
 
-%.1: %.1.adoc
+%.5: %.5.adoc
 	$(ASCIIDOCTOR) -b manpage -o $@ $<
 
-%.5: %.5.adoc
+%.8: %.8.adoc
 	$(ASCIIDOCTOR) -b manpage -o $@ $<

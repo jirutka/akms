@@ -1,0 +1,302 @@
+= akms(8)
+Jakub Jirutka
+:doctype: manpage
+:repo-uri: https://github.com/jirutka/akms
+:issues-uri: {repo-uri}/issues
+:man-uri: {repo-uri}/blob/master/
+ifdef::backend-manpage[]
+:AKMBUILD: pass:q[*AKMBUILD(5)*]
+:akms-conf: pass:q[*akms.conf(5)*]
+:apk: pass:q[*apk(8)*]
+:glob: pass:q[*glob(7)*]
+:module-destdir: pass:q[/lib/modules/<__kernelver__>/kernel/extra/akms/]
+endif::[]
+ifndef::backend-manpage[]
+:AKMBUILD: {man-uri}/AKMBUILD.5.adoc[AKMBUILD(5)]
+:akms-conf: {man-uri}/akms[akms.conf(5)]
+:apk: apk(8)
+:glob: https://www.mankier.com/7/glob[glob(7)]
+:module-destdir: pass:q[`/lib/modules/<__kernelver__>/kernel/extra/akms/`]
+endif::[]
+
+
+== NAME
+
+akms - Alpine Kernel Module Support
+
+
+== SYNOPSIS
+
+*akms* (*install* | *build*) [_options_] <__srcdir__ | all>
+
+*akms* (*uninstall* | *unbuild*) [_options_] <__modname__>[/<__modver__>]
+
+*akms status* [_options_] [<__modname__>[/<__modver__>]]
+
+*akms* [-h] [--help] [-V]
+
+
+== DESCRIPTION
+
+*akms(8)* (AKMS) is a tool that enables building out-of-tree (external) Linux kernel modules from source for each installed kernel on the user`'s system in an automated and organized fashion.
+The concept is to have kernel modules automatically rebuilt when a new kernel version is installed.
+
+AKMS is principally inspired by DKMS (Dynamic Kernel Module Support) used on many Linux distributions.
+AKMS has been designed specifically for Alpine Linux and {apk}; implemented with simplicity, reliability, and security in mind.
+
+One of the advantages of AKMS over DKMS is that you don`'t need to have all the dependencies for building modules permanently installed on the system.
+If some dependencies are missing, they are automatically installed in a disposable overlay over your real root filesystem (using OverlayFS and bubblewrap).
+The original reason for using overlay was to avoid the limitation of the APK triggers -- they are executed inside a "`transaction`" that holds an exclusive repository lock.
+This means that no packages could be installed if *akms(8)* was executed by a trigger.
+Mounting a disposable overlay on top of "`/`" for building the modules overcomes this limitation and provides some benefits.
+
+
+== ACTIONS
+
+*install*::
+Build and install kernel module from the _srcdir_ for the kernel version(s) specified by *--kernel*.
+_srcdir_ can be either the absolute path of the module`'s source directory containing an {AKMBUILD} file or a {glob} pattern matching one or more module source directories in `/usr/src` (can be changed by parameter *modules_srcdir* in {akms-conf}).
+A special value "`all`" can be used to build and install all modules found under `/usr/src`.
++
+If the given module version is already built for the specified kernel, it will *not* be rebuilt, unless *--rebuild* is used.
++
+If the module is already installed, it will verify that the installed kernel objects in {module-destdir} match the ones stored in the state directory (refer to section *<<FILES>>* for more information).
++
+If another version of the module is installed for the given kernel, it will be automatically **uninstall**ed right before installing the new one.
+
+*build*::
+The same as *install*, but it will only build the module without installing into `/lib/modules`.
+
+*uninstall*::
+Uninstall the specified module(s) from {module-destdir}.
+A special value "`all`" can be used to uninstall all modules installed for the kernel version(s) specified by *--kernel*.
++
+If *keep_uninstalled* is not enabled in {akms-conf} or *--no-keep* is specified, it will also remove the uninstalled module version from the state directory (refer to section *<<FILES>>*).
+
+*unbuild*::
+Remove the specified module version(s) built for the kernel version specified by *--kernel* from the state directory (refer to section *<<FILES>>*).
+A special value "`all`" can be used to unbuild all modules built for the specified kernel.
+If _modver_ is not specified, all not installed versions will be removed.
++
+If the specified module version is installed, it will not be removed unless *--force* is used.
+
+*status*::
+Print state of modules found in the state directory (refer to section *<<MODULE STATE>>*).
+The list can be filtered by the module name (_modname_), version (_modver_), kernel (*--kernel*), and status (*--status*).
+
+
+== OPTIONS
+
+=== Common Options
+
+The following options are available for all actions.
+
+*-q*, *--quiet*::
+Be quiet, print only warn and error messages.
+This option overrides parameter *log_level* specified in {akms-conf}.
+
+*-v*, *--verbose*::
+Be verbose, print even debug messages.
+This option overrides parameter *log_level* specified in {akms-conf}.
+
+*-V*, *--version*::
+Print the program version and exit.
+
+*-h*, *--help*::
+Print the help message and exit.
+
+
+=== Install and Build Options
+
+The following options are available for the *install* and *build* actions.
+
+*-k*, *--keep*::
+Keep uninstalled modules in the state directory (`/var/lib/akms`).
+This option overrides parameter *keep_uninstalled* specified in {akms-conf}.
+See {akms-conf} for more information.
+
+*--no-keep*::
+The opposite of *--keep*.
+
+*-k* <__kernelver__>, *--kernel* <__kernelver__>::
+Specify for which _kernelver_ to build and install the module (e.g. `5.10.53-0-lts`).
+A special value "`all`" can be used to build and install the module for all the installed kernels (based on `/usr/share/kernel/*/kernel.release`).
++
+If not specified, the module will be built and installed for the installed kernel that has the same flavour as the currently running kernel.
+
+*-r*, *--rebuild*::
+Rebuild (and install) the module even if it has been already built.
+
+*--[no-]overlay*::
+Whether to install the build dependencies into the root overlay created on top of `/`, or on the host system.
+This option overrides parameter *use_overlayfs* specified in {akms-conf} (enabled by default).
+
+*--skip-cleanup*::
+Do not unmount and delete the root overlay used for building and do not uninstall the build dependencies.
+
+
+=== Uninstall Options
+
+The following options are available for the *uninstall* action.
+
+*-k*, *--keep*::
+Keep uninstalled modules in the state directory (`/var/lib/akms`).
+This option overrides parameter *keep_uninstalled* specified in {akms-conf}.
+See {akms-conf} for more information.
+
+*--no-keep*::
+The opposite of *--keep*.
+
+*-f*, *--force*::
+Uninstall the module`'s kernel objects from {module-destdir} even if they are different from the ones stored in the state directory (`/var/lib/akms`).
+
+*-k* <__kernelver__>, *--kernel* <__kernelver__>::
+Specify from which kernel version to uninstall the module (e.g. `5.10.53-0-lts`).
+A special value "`all`" can be used to uninstall the module from all kernels where the module is installed.
++
+If not specified, the module will be uninstalled from the installed kernel with the same flavour as the currently running kernel.
+
+
+=== Unbuild Options
+
+The following options are available for the *unbuild* action.
+
+*-f*, *--force*::
+Unbuild the module (remove from the state directory) even if it`'s installed (without uninstalling).
+
+*-k* <__kernelver__>, *--kernel* <__kernelver__>::
+Specify for which kernel version to unbuild the module (e.g. `5.10.53-0-lts`).
+A special value "`all`" can be used to unbuild the module for all kernels.
++
+If not specified, module built for the installed kernel with the same flavour as the currently running kernel will be unbuilt.
+
+
+=== Status Options
+
+The following options are available for the *status* action.
+
+*-k* <__kernelver__>, *--kernel* <__kernelver__>::
+Filter modules by the specified kernel version (e.g. `5.10.53-0-lts`).
+
+*-s* <__state__>, *--state* <__state__>::
+Filter modules by their state.
+Refer to section *<<MODULE STATE>>* for more information.
+
+
+== MODULE STATE
+
+A specific module version for a specific kernel can be in one of the following states:
+
+. (no state) -- The given module version for the given kernel has not been built yet, there is no entry in the state directory.
+. *building* -- The module is currently being built.
+. *built* -- The module has been successfully built, but it is not installed in `/lib/modules`.
+. *installed* -- The module is built and installed in `/lib/modules`.
+. *failed* -- The module failed to be built.
+. *corrupted* -- The module has been installed into `/lib/modules`, but the kernel objects found in `/lib/modules` differ from the built objects or some are missing.
+
+ifdef::backend-manpage[.]
+
+The following diagram illustrates all possible transitions between the states supported by *akms(8)*.
+
+....
+             build                (OK)            install
+(no state) ---------> [building] ------> [built] ---------> [installed] --------+
+     ^                    ^      \        |   ^                :   ^            |
+     |                    |       |       |   |                :   |            |
+     |              build |       | (NOK) |   |                :   | install    |
+     |                    |       v       |   |                v   |            |
+     |                    `--- [failed]   |   |             [corrupted]         |
+     |                            |       |   |                  |              |
+     |                            |       |   | ^ (keep)         |              |
+     +----------------------------+-------+ - +------------------+--------------+
+                    unbuild                 < (no-keep)      uninstall
+....
+
+
+== APK TRIGGERS
+
+Alpine`'s *akms* package installs a trigger script that monitors `/usr/src/`.
+Each time you install or remove a package that creates or updates a directory in `/usr/src` and that directory contains an {AKMBUILD} file, the trigger runs `"akms install /usr/src/<directory>"`.
+In other words, when you install a kernel module source package, it will be automatically built and installed for the currently installed kernel.
+
+This can be disabled by setting *disable_trigger* in {akms-conf} to "`yes`" or changing *modules_srcdir* ibid. to another directory.
+
+To automatically rebuild available modules after a new kernel version is installed, AKMS uses the trigger-based mechanism provided by the `kernel-hooks` package.
+It provides the `akms.hook` script that is automatically symlinked into `/etc/kernel-hooks.d`.
+When a new kernel version is installed, this hook runs `"akms install -k <new-kernel-ver> all"` to build all modules found in *modules_srcdir* (`/usr/src`) for the new kernel.
+Analogically, when an old kernel version is uninstalled (i.e. with an upgrade), it runs `"akms uninstall -k <old-kernel-ver> all"` to uninstall all modules installed for the old kernel.
+
+If you want to disable this hook, just remove the symlink in `/etc/kernel-hooks.d`.
+
+
+== FILES
+
+*/etc/akms.conf*::
+The configuration file for *akms(8)*.
+
+*/usr/src/*<__modname__>-<__modver__>**/AKMBUILD**::
+Metadata and instructions to build a dynamic kernel module.
+See {AKMBUILD}.
+
+The following tree illustrates all files and directories used or expected by *akms(8)*.
+
+[subs="+quotes,attributes,macros"]
+....
+/
+├─ etc
+│   ├─ akms.conf ............... {akms-conf}
+│   └─ kernel-hooks.d
+│       └─ <n>-akms.hook ---+ .. symlink to akms.hook
+│                           |
+├─ usr/share/kernel-hooks.d |
+│   └─ akms.hook <----------+ .. the kernel hook
+│
+├─ lib/modules
+│   ├─ <__kernelver__> ............. dynamic modules for the _kernelver_
+│   │   └─ kernel/extra/akms/... files installed by akms (*modules_dest_path*)
+│   :   ...
+│   └─ <__kernelver__>
+│
+├─ tmp/akms .................... *temp_dir* in {akms-conf}
+│   └─ <timestamp> ............. a temp dir created when building, removed afterwards
+│       └─ overlay/............. mount point for a disposable root overlay
+│
+├─ usr/src ..................... directory with sources (*modules_srcdir* in {akms-conf})
+│   ├─ <__modname__>-<__modver__> ...... module's source directory
+│   │   ├─ AKMBUILD ............ {AKMBUILD}
+│   │   └─ *.c, *.h, ...
+│   :   ...
+│   └─ <__modname__>-<__modver__>
+│
+└─ var/lib/akms ................ the state directory tree
+    ├─ <__kernelver__> ............. directory with modules for particular kernel version
+    │   ├─ <__modname__> ........... directory with versions of the module
+    │   │   ├─ <__modver__> ........ module's state directory
+    │   │   │   ├─ build/ ...... module's build directory (in states building, failed)
+    │   │   │   ├─ modules/ .... built kernel objects
+    │   │   │   └─ state ....... file with the state string
+    │   │   ├─ <__modver__> <---+
+    │   │   :   ...{nbsp}        |
+    │   │   ├─ <__modver__>     |
+    │   │   └─ installed ---+ .. symlink to the installed version
+    │   :   ...
+    │   └─ <__modname__>
+    :   ...
+    └─ <__kernelver__>
+....
+
+
+== AUTHORS
+
+{author}
+
+
+== REPORTING BUGS
+
+Report bugs to the project`'s issue tracker at {issues-uri}.
+
+
+== SEE ALSO
+
+{akms-conf}
+{AKMBUILD}

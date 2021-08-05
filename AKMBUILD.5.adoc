@@ -11,7 +11,7 @@ ifdef::backend-manpage[]
 :make: pass:q[*make(1)*]
 endif::[]
 ifndef::backend-manpage[]
-:akms: {man-uri}/akms[akms(8)]
+:akms: {man-uri}/akms.8.adoc[akms(8)]
 :akms-conf: {man-uri}/akms.conf.5.adoc[akms.conf(5)]
 :APKBUILD: `APKBUILD(5)`
 :make: https://www.mankier.com/1/make[make(1)]
@@ -133,5 +133,6 @@ Report bugs to the project`'s issue tracker at {issues-uri}.
 
 == SEE ALSO
 
-{APKBUILD}
+{akms}
 {akms-conf}
+{APKBUILD}
