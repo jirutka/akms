@@ -2,7 +2,7 @@
 #---help---
 # Usage:
 #     akms (install | build) [options] <srcdir>
-#     akms uninstall [options] <module>[/<version>]
+#     akms (uninstall | unbuild) [options] <module>[/<version>]
 #     akms status [options] [<module>[/<version>]]
 #     akms [-h] [--help] [-V]
 #
@@ -15,19 +15,22 @@
 #
 #     uninstall     Uninstall module(s) from /lib/modules.
 #
+#     unbuild       Remove built module(s) version(s) from the state directory.
+#
 #     status        Show status of modules.
 #
 # Arguments:
-#     <module>      Name of the module to (un)install or show in status.
-#                   Use 'all' to (un)install all modules.
+#     <module>      Name of the module to uninstall, unbuild or show in status.
+#                   Use 'all' to uninstall/unbuild all modules.
 #
 #     <srcdir>      Location of the source directory with AKMBUILD to install.
 #                   It may be an absolute path, (glob) name of a directory
 #                   inside $modules_srcdir (/usr/src by default), or 'all' to
 #                   install all modules found in $modules_srcdir.
 #
-#     <version>     Version of the module to uninstall or show in status.
-#                   Default is 'installed' for uninstall and 'all' for status.
+#     <version>     Version of the module to uninstall, unbuild or show in
+#                   status. Use 'all' for all versions. Default is 'installed'
+#                   for uninstall, not-installed for unbuild, 'all' for status.
 #
 # Common options:
 #     -k --[no]-keep
@@ -65,14 +68,16 @@
 #          Don't unmount and delete root overlay used for building and don't
 #          uninstall build dependencies.
 #
-# Options for uninstall:
+# Options for uninstall and unbuild:
 #     -f --force
 #          Uninstall module's files from /lib/modules even if they are different
-#          from the ones stored in /var/lib/akms.
+#          from the ones stored in /var/lib/akms. Unbuild module (remove it from
+#          the state dir) even if it's installed (without uninstalling).
 #
 #     -k --kernel <kernel>
-#          Specify from which kernel to uninstall the module(s). Use 'all' to
-#          uninstall from all kernels where the module(s) is/are installed.
+#          Specify from/for which kernel to uninstall/unbuild the module(s). Use
+#          'all' to uninstall from all kernels where the module(s) is/are
+#          installed; unbuild for all kernels the module(s) is/are built for.
 #          Defaults to the installed kernel with the same flavor as the currently
 #          running kernel.
 #
@@ -665,6 +670,63 @@ uninstall_module() {
 	fi
 }
 
+
+#================================  Unbuild  ===================================
+
+# $1: name and optionally version of the module to unbuild or "all"
+action_unbuild() {
+	if [ $# -lt 1 ]; then
+		err 'Missing argument: <module>[/<version>] | all'; return 1
+	fi
+
+	local modname modver
+	case "$1" in
+		*/*) modname=${1%%/*}; modver=${1#*/};;
+		*) modname=$1; modver='';;
+	esac
+	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
+
+	local found=false rc=0 statedir
+	for statedir in $(find_statedirs "$kernel" "$modname" "$modver"); do
+		if ! [ "$modver" ] && [ "$(read_state $statedir)" = 'installed' ]; then
+			continue
+		fi
+		unbuild_module $statedir || rc=$?
+		found=true
+	done
+	if ! $found; then
+		err 'No built modules found for given criteria'
+		rc=1
+	fi
+	return $rc
+}
+
+# Removes the given state directory, unless the module is installed and --force
+# was not specified.
+#
+# $1: location of the module's state directory
+unbuild_module() {
+	local statedir=$1
+	local state=$(read_state "$statedir")
+
+	set -- $(statedir_to_triplet "$statedir")
+	local kernel=$1 modname=$2 modver=$3
+
+	if [ "$state" = 'installed' ]; then
+		if ! $OPT_FORCE; then
+			log warn "Module $modname ($modver) is installed, skipping (use --force to override)"
+			return 1
+		fi
+		rm -f ${statedir%/*}/installed
+	fi
+
+	log info "Unbuilding module $modname ($modver) for kernel $kernel"
+
+	remove_statedir $statedir
+}
+
+# Removes the given state directory. No checks are performed, nothing is logged.
+#
 # $1: location of the module's state directory
 remove_statedir() {
 	local statedir=$1
@@ -806,7 +868,7 @@ readonly ACTION OPT_FORCE OPT_KEEP_UNINSTALLED OPT_KERNEL OPT_LOGLEVEL
 readonly OPT_OVERLAY OPT_REBUILD OPT_SKIP_CLEANUP
 
 case "$ACTION" in
-	install | build | uninstall)
+	install | build | uninstall | unbuild)
 		if [ "$(id -u)" -ne 0 ]; then
 			err 'Must be run as root!'; exit 1
 		fi
