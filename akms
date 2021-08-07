@@ -811,10 +811,10 @@ case "$ACTION" in
 			err 'Must be run as root!'; exit 1
 		fi
 		trap cleanup $TRAP_SIGNALS
-		action_$ACTION "$@"
+		action_$ACTION "$@"; exit $?
 	;;
 	status)
-		action_$ACTION "$@"
+		action_$ACTION "$@"; exit $?
 	;;
 	*)
 		err "Unknown action: $ACTION"
