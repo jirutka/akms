@@ -1,13 +1,15 @@
 PROGNAME      := akms
 
 prefix        := /usr/local
-sbindir       := $(prefix)/sbin
+datarootdir   := $(prefix)/share
 libexecdir    := $(prefix)/libexec
 localstatedir := /var
 mandir        := $(prefix)/share/man
+sbindir       := $(prefix)/sbin
 sysconfdir    := /etc
 
 STATE_DIR     := $(localstatedir)/lib/$(PROGNAME)
+KERNEL_HOOKS_DIR := $(datarootdir)/kernel-hooks.d
 
 MAN_FILES     := $(basename $(wildcard *.[1-9].adoc))
 
@@ -48,6 +50,7 @@ install-other:
 		"$(DESTDIR)$(sbindir)/$(PROGNAME)"
 	$(INSTALL) -D -m755 akms-build "$(DESTDIR)$(libexecdir)/$(PROGNAME)/akms-build"
 	$(INSTALL) -D -m644 akms.conf "$(DESTDIR)$(sysconfdir)/$(PROGNAME).conf"
+	$(INSTALL) -D -m755 akms.kernel-hook "$(DESTDIR)$(KERNEL_HOOKS_DIR)/$(PROGNAME).hook"
 	$(INSTALL) -d -m755 "$(DESTDIR)$(STATE_DIR)"
 
 #: Install man pages into $DESTDIR/$mandir/man[1-9]/.
@@ -59,6 +62,7 @@ uninstall:
 	rm -f "$(DESTDIR)$(sbindir)/$(PROGNAME)"
 	rm -Rf "$(DESTDIR)$(libexecdir)/$(PROGNAME)"
 	rm -f "$(DESTDIR)$(sysconfdir)/$(PROGNAME).conf"
+	rm -f "$(DESTDIR)$(KERNEL_HOOKS_DIR)/$(PROGNAME).hook"
 	rmdir "$(DESTDIR)$(STATE_DIR)" || true
 
 #: Update version in the script and README.adoc to $VERSION.
