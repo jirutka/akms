@@ -612,7 +612,7 @@ action_uninstall() {
 
 	local statedirs
 	statedirs=$(find_statedirs "$kernel" "$modname" "$modver") || {
-		err "No modules found for kernel:${kernel:-*}, name:${modname:-*}, version:${modver:-*}"
+		err "No modules found for kernel:$kernel, name:$modname, version:$modver"
 		return 1
 	}
 
