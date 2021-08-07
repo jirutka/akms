@@ -3,7 +3,13 @@
 :gh-name: jirutka/{proj-name}
 :version: 0.0.0
 
-TBD
+AKMS is a tool that enables building out-of-tree (external) Linux kernel modules from source for each installed kernel on the user’s system in an automated and organized fashion.
+The concept is to have kernel modules automatically rebuilt when a new kernel version is installed.
+
+AKMS is inspired by https://github.com/dell/dkms[DKMS] (Dynamic Kernel Module Support) used on many Linux distributions.
+It has been designed specifically for https://alpinelinux.org/[Alpine Linux] and https://gitlab.alpinelinux.org/alpine/apk-tools[APK]; implemented with simplicity, reliability, and security in mind.
+
+See the following manual pages for more information.
 
 
 == Manual Pages
@@ -25,13 +31,6 @@ TBD
 .*Build*:
 * https://www.gnu.org/software/make/[GNU Make]
 * http://asciidoctor.org/[Asciidoctor] (for building man pages)
-
-
-== Usage
-
-See the help section in link:{proj-name}#L3[{proj-name}] (or run `{proj-name} -h`) and comments in link:{proj-name}.conf[].
-
-TBD
 
 
 == License
