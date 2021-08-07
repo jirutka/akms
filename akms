@@ -241,7 +241,9 @@ _bwrap() {
 # $1: location of the module's state directory
 # stdout: space-separated triplet: kernel modname modver
 statedir_to_triplet() {
-	echo "${1#$STATE_DIR}" | tr / ' '
+	local statedir=$(readlink -f "$1")
+
+	echo "${statedir#$STATE_DIR}" | tr / ' '
 }
 
 # $1: kernel release (e.g. 5.10.53-0-lts)
@@ -582,7 +584,7 @@ install_module() {
 	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
 
 	if [ -d ${statedir%/*}/latest ]; then
-		uninstall_module ${statedir%/*}/latest
+		uninstall_module ${statedir%/*}/latest 'upgrade'
 	fi
 
 	local kofile; for kofile in "$statedir"/modules/*; do
@@ -618,25 +620,28 @@ action_uninstall() {
 
 	local rc=0 statedir
 	for statedir in $statedirs; do
-		statedir=$(readlink -f $statedir)
 		if ! verify_installed_files $statedir && ! $OPT_FORCE; then
 			rc=1
 			continue
 		fi
-		log info "Uninstalling module $modname (${statedir##*/}) from kernel $kernel"
 		uninstall_module $statedir || rc=$?
 	done
 	exit $rc
 }
 
 # $1: location of the module's state directory
+# $2: upgrade mode - if not empty, the info message "Uninstalling module ..."
+#     will not be logged
 uninstall_module() {
 	local statedir=$1
+	local upgrade=${2:-}
 
 	set -- $(statedir_to_triplet "$statedir")
 	local kernel=$1 modname=$2 modver=$3
 
 	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
+
+	[ "$upgrade" ] || log info "Uninstalling module $modname ($modver) from kernel $kernel"
 
 	local kofile koname
 	for kofile in "$statedir"/modules/*; do
