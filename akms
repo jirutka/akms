@@ -270,7 +270,7 @@ split_kernel_ver() {
 	local rel=${kernel#*-}; rel=${rel%%-*}
 	local flavor=${kernel#$ver-$rel-}
 
-	echo $ver $rel $flavor
+	echo "$ver" "$rel" "$flavor"
 }
 
 # stdout: newline-separated kernel releases (e.g. 5.10.53-0-lts)
