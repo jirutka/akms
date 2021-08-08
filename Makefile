@@ -48,7 +48,7 @@ install-other:
 		-e "s|/var/lib/akms|$(STATE_DIR)|" \
 		-e "s|/etc/akms\.conf|$(sysconfdir)/$(PROGNAME).conf|" \
 		"$(DESTDIR)$(sbindir)/$(PROGNAME)"
-	$(INSTALL) -D -m755 akms-build "$(DESTDIR)$(libexecdir)/$(PROGNAME)/akms-build"
+	$(INSTALL) -D -m755 -t "$(DESTDIR)$(libexecdir)/$(PROGNAME)/" akms-build akms-runas
 	$(INSTALL) -D -m644 akms.conf "$(DESTDIR)$(sysconfdir)/$(PROGNAME).conf"
 	$(INSTALL) -D -m755 akms.kernel-hook "$(DESTDIR)$(KERNEL_HOOKS_DIR)/$(PROGNAME).hook"
 	$(INSTALL) -d -m755 "$(DESTDIR)$(STATE_DIR)"

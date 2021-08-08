@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+
+if [ $# -eq 0 ]; then
+	echo "Usage: $0 <user> [--sandbox <rootfs> [bwrap-opts]] (-- | [ENV_NAME=VALUE]...) <cmd> [cmd-args]" >&2
+	exit 1
+fi
+
+user=$1; shift
+
+rootfs=''
+if [ "$1" = '--sandbox' ]; then
+	rootfs=$2; shift 2
+	bwrap_opts=${BWRAP_OPTS:-}
+
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			--) shift; break;;
+			*=*) break;;
+			*) bwrap_opts="$bwrap_opts $1"; shift;;
+		esac
+	done
+	if [ $# -eq 0 ]; then
+		echo 'akms-runas: missing <cmd>'; exit 1
+	fi
+
+	exec /bin/su -l "$user" -s /bin/sh -c 'exec /usr/bin/bwrap "$@"' -- -- \
+		--unshare-all \
+		--bind "$rootfs" / \
+		--proc /proc \
+		--dev-bind /dev /dev \
+		--die-with-parent \
+		$bwrap_opts \
+		-- /usr/bin/env "$@"
+else
+	[ "$1" = '--' ] && shift
+	exec /bin/su -l "$user" -s /bin/sh -c 'exec /usr/bin/env "$@"' -- -- "$@"
+fi

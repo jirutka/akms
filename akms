@@ -110,7 +110,6 @@ readonly STATE_DIR='/var/lib/akms'
 readonly AKMBUILD_VARS_REQUIRED='built_modules modname modver'
 readonly AKMBUILD_VARS="$AKMBUILD_VARS_REQUIRED makedepends"
 readonly APK_VIRT=".$PROGNAME-build"
-readonly DEFAULT_PATH='/usr/local/bin:/usr/bin:/bin'
 readonly TRAP_SIGNALS='EXIT HUP INT TERM'
 
 # Defaults that may be overriden by $CFG_FILE.
@@ -213,45 +212,10 @@ to_bool() {
 	esac
 }
 
-# Runs given command or script as unprivileged user $BUILD_ROOT.
-# If $BUILD_ROOT is set, it will be run inside a bubblewrap container
-# started at $BUILD_ROOT.
-#
-# usage: [-c] <cmd|script> [name=value]...
-doas_unpriv() {
-	local opts=
-	if [ "$1" = '-c' ]; then
-		opts=$1; shift
-	fi
-	local cmd=$1; shift
-
-	${BUILD_ROOT:+_bwrap "$BUILD_ROOT" --} \
-		/usr/bin/env -i PATH="$DEFAULT_PATH" "$@" \
-		/bin/su -s /bin/sh "$BUILD_USER" $opts "$cmd"
-}
-
-# Runs bubblewrap with predefined options and the given arguments.
-#
-# NOTE: The main reason for using bubblewrap instead of chroot is just easier
-#   preparation and disposal.
-#
-# $1: location of the directory which should be binded at /
-# $@: arguments for bwrap
-_bwrap() {
-	local rootdir=$1; shift
-
-	bwrap \
-		--unshare-ipc \
-		--unshare-pid \
-		--unshare-net \
-		--unshare-uts \
-		--unshare-cgroup \
-		--bind "$rootdir" / \
-		--proc /proc \
-		--dev-bind /dev /dev \
-		--die-with-parent \
-		$BWRAP_OPTS \
-		"$@"
+# Refer to script akms-runas for usage information.
+runas() {
+	export BWRAP_OPTS
+	"$SCRIPTS_DIR"/akms-runas "$@"
 }
 
 # $1: location of the module's state directory
@@ -359,9 +323,10 @@ load_akmbuild() {
 	done
 
 	local vars; vars=$(
-		doas_unpriv -c ". '$akmbuild'; set" \
+		runas "$BUILD_USER" \
 			kernel_ver="${kernel:-}" \
 			kernel_srcdir="${kernel_srcdir:-}" \
+			/bin/sh -c ". '$akmbuild'; set" \
 		| grep -E "^(${AKMBUILD_VARS// /|})="
 	)
 	if [ $? -ne 0 ]; then
@@ -572,13 +537,14 @@ build_module() {
 	rm -Rf "$builddir"
 	install -d -o "$BUILD_USER" "$builddir" || return 1
 
-	doas_unpriv "$SCRIPTS_DIR"/akms-build \
+	runas "$BUILD_USER" ${BUILD_ROOT:+--sandbox "$BUILD_ROOT"} \
 		srcdir="$srcdir" \
 		builddir="${builddir#$BUILD_ROOT}" \
 		kernel_ver="$kernel" \
 		kernel_srcdir="$kernel_srcdir" \
 		LOG_LEVEL="$OPT_LOGLEVEL" \
-		MAKEFLAGS="$MAKEFLAGS"
+		MAKEFLAGS="$MAKEFLAGS" \
+		"$SCRIPTS_DIR"/akms-build
 	if [ $? -ne 0 ]; then
 		err "Failed to build module $modname/$modver for $kernel" "examine $builddir"
 		return 1
