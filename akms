@@ -601,8 +601,8 @@ install_module() {
 	local statedir=$1
 	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
 
-	if [ -d ${statedir%/*}/latest ]; then
-		uninstall_module ${statedir%/*}/latest 'upgrade'
+	if [ -d ${statedir%/*}/installed ]; then
+		uninstall_module ${statedir%/*}/installed 'upgrade'
 	fi
 
 	local kofile; for kofile in "$statedir"/modules/*; do
