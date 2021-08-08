@@ -102,7 +102,6 @@ readonly PROGNAME='akms'
 readonly VERSION='0.0.0'
 
 readonly CFG_FILE='/etc/akms.conf'
-readonly DEFAULT_MODULES_SRC_DIR='/usr/src'
 readonly KERNELS_SRC_DIR='/usr/src'
 readonly MODULES_BASE_DIR='/lib/modules'
 readonly SCRIPTS_DIR='/usr/libexec/akms'
@@ -114,6 +113,20 @@ readonly APK_VIRT=".$PROGNAME-build"
 readonly DEFAULT_PATH='/usr/local/bin:/usr/bin:/bin'
 readonly TRAP_SIGNALS='EXIT HUP INT TERM'
 
+# Defaults that may be overriden by $CFG_FILE.
+MAKEFLAGS="-j$(nproc)"
+
+[ -f "$CFG_FILE" ] && . "$CFG_FILE"
+
+readonly BUILD_USER=${build_user:-akms}
+readonly BWRAP_OPTS=${bubblewrap_opts:-}
+readonly MAKEDEPENDS=${makedepends:-build-base}
+readonly MAKEFLAGS
+readonly MODULES_DEST_PATH=${modules_dest_path:-/kernel/extra/akms}
+readonly MODULES_SRC_DIR=${modules_srcdir:-/usr/src}
+readonly TEMP_DIR="${temp_dir:-/tmp/$PROGNAME}/$(date +%s)"
+
+# Global mutable variables.
 LOG_ENABLED_LEVELS=' err warn info '
 BUILD_ROOT=
 
@@ -809,18 +822,6 @@ case "${1:-}" in
 	-*) ;;
 	*) ACTION=$1; shift;;
 esac
-
-# Defaults that may be overriden by $CFG_FILE.
-MAKEFLAGS="-j$(nproc)"
-
-[ -f "$CFG_FILE" ] && . "$CFG_FILE"
-
-readonly BUILD_USER=${build_user:-akms}
-readonly BWRAP_OPTS=${bubblewrap_opts:-}
-readonly MAKEDEPENDS=${makedepends:-build-base}
-readonly MODULES_DEST_PATH=${modules_dest_path:-/kernel/extra/akms}
-readonly MODULES_SRC_DIR=${modules_srcdir:-$DEFAULT_MODULES_SRC_DIR}
-readonly TEMP_DIR="${temp_dir:-/tmp/$PROGNAME}/$(date +%s)"
 
 OPT_FORCE=false
 OPT_KEEP_UNINSTALLED=$(to_bool "${keep_uninstalled:-false}")
