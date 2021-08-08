@@ -362,7 +362,7 @@ find_statedirs() {
 	local statedir
 	for statedir in "$STATE_DIR"/${kernel:-[0-9]*}/${modname:-[a-z]*}/${modver:-[0-9]*}; do
 		[ -d "$statedir" ] || return 1
-		echo "$statedir"
+		readlink -f "$statedir"
 	done
 }
 
