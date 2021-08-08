@@ -73,7 +73,6 @@ uninstall:
 bump-version:
 	test -n "$(VERSION)"  # $$VERSION
 	$(SED) -E -i "s/^(readonly VERSION)=.*/\1='$(VERSION)'/" $(PROGNAME)
-	$(SED) -E -i "s/^(:version:).*/\1 $(VERSION)/" README.adoc
 
 #: Bump version to $VERSION, create release commit and tag.
 release: .check-git-clean | bump-version

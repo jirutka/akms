@@ -1,7 +1,6 @@
 = Alpine Kernel Module Support (AKMS)
 :proj-name: akms
 :gh-name: jirutka/{proj-name}
-:version: 0.0.0
 
 AKMS is a tool that enables building out-of-tree (external) Linux kernel modules from source for each installed kernel on the user’s system in an automated and organized fashion.
 The concept is to have kernel modules automatically rebuilt when a new kernel version is installed.
