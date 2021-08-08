@@ -250,7 +250,6 @@ _bwrap() {
 		--proc /proc \
 		--dev-bind /dev /dev \
 		--tmpfs /tmp \
-		--ro-bind /var/empty /home \
 		--die-with-parent \
 		$BWRAP_OPTS \
 		"$@"

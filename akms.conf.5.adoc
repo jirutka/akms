@@ -45,7 +45,6 @@ Additional options that will be passed to {bwrap} to create a disposable "`conta
 This "`container`" is created on the overlay (OverlayFS) of the host'`s `/` (the root file system) -- it'`s basically a disposable snapshot and {bwrap} is used as an alternative to `chroot(1)`.
 +
 You may need to bind mount more filesystems to the "`container`" if you have a more complicated setup, such as `/usr` and `/var` on different file systems or subvolumes.
-Please note that `/home` is implicitly "`hidden`" by bind mounting `/var/empty` readonly to `/home`.
 Refer to {bwrap} for available options.
 +
 This option is effective only when *use_overlayfs* is `"yes"`.
