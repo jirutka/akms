@@ -110,7 +110,7 @@ Print the help message and exit.
 
 The following options are available for the *install* and *build* actions.
 
-*-k*, *--keep*::
+*-K*, *--keep*::
 Keep uninstalled modules in the state directory (`/var/lib/akms`).
 This option overrides parameter *keep_uninstalled* specified in {akms-conf}.
 See {akms-conf} for more information.
@@ -139,7 +139,7 @@ Do not unmount and delete the root overlay used for building and do not uninstal
 
 The following options are available for the *uninstall* action.
 
-*-k*, *--keep*::
+*-K*, *--keep*::
 Keep uninstalled modules in the state directory (`/var/lib/akms`).
 This option overrides parameter *keep_uninstalled* specified in {akms-conf}.
 See {akms-conf} for more information.

@@ -33,7 +33,7 @@
 #                   for uninstall, not-installed for unbuild, 'all' for status.
 #
 # Common options:
-#     -k --[no]-keep
+#     -K --[no]-keep
 #          Whether to keep uninstalled modules in /var/lib/akms. Default is to not
 #          keep unless overriden in /etc/akms.conf.
 #
@@ -833,7 +833,7 @@ OPT_STATE='all'
 OPT_SKIP_CLEANUP=false
 
 opts=$(getopt -n $PROGNAME \
-	-o fk:qrs:vVh \
+	-o fKk:qrs:vVh \
 	-l force,keep,no-keep,kernel:,overlay,no-overlay,quiet,rebuild,skip-cleanup,state:,verbose,version,help \
 	-- "$@") || exit 1
 eval set -- "$opts"
