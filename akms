@@ -718,7 +718,7 @@ remove_statedir() {
 	rm -Rf "$statedir"
 
 	while [ "$parentdir" != "$STATE_DIR" ]; do
-		rmdir "$parentdir" || break
+		rmdir "$parentdir" 2>/dev/null || break
 		parentdir=${parentdir%/*}
 	done
 }
