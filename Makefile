@@ -64,6 +64,9 @@ uninstall:
 	rm -Rf "$(DESTDIR)$(libexecdir)/$(PROGNAME)"
 	rm -f "$(DESTDIR)$(sysconfdir)/$(PROGNAME).conf"
 	rm -f "$(DESTDIR)$(KERNEL_HOOKS_DIR)/$(PROGNAME).hook"
+	for name in $(MAN_FILES); do \
+		rm -f "$(DESTDIR)$(mandir)/man$${name##*.}/$$name"; \
+	done
 	rmdir "$(DESTDIR)$(STATE_DIR)" || true
 
 #: Update version in the script and README.adoc to $VERSION.
