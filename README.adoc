@@ -33,6 +33,14 @@ See the following manual pages for more information.
 * http://asciidoctor.org/[Asciidoctor] (for building man pages)
 
 
+== Installation
+
+Install package {proj-name} from the Alpine’s Edge community repository:
+
+[source, sh, subs="+attributes"]
+apk add {proj-name}
+
+
 == License
 
 This project is licensed under http://opensource.org/licenses/MIT/[MIT License].
