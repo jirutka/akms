@@ -537,7 +537,7 @@ build_module() {
 	rm -Rf "$builddir"
 	install -d -o "$BUILD_USER" "$builddir" || return 1
 
-	runas "$BUILD_USER" ${BUILD_ROOT:+--sandbox "$BUILD_ROOT"} \
+	runas "$BUILD_USER" --sandbox "${BUILD_ROOT:-/}" \
 		srcdir="$srcdir" \
 		builddir="${builddir#$BUILD_ROOT}" \
 		kernel_ver="$kernel" \

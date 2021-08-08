@@ -41,13 +41,11 @@ It SHOULD NOT define any functions, variables other than those specified in this
 The following variables MAY be defined by the user to configure {akms}.
 
 *bubblewrap_opts*::
-Additional options that will be passed to {bwrap} to create a disposable "`container`" for building modules.
-This "`container`" is created on the overlay (OverlayFS) of the host'`s `/` (the root file system) -- it'`s basically a disposable snapshot and {bwrap} is used as an alternative to `chroot(1)`.
+Additional options that will be passed to {bwrap} to create a sandbox (disposable "`container`") for building modules.
+If build dependencies are needed to be installed, and *use_overlayfs* is not disabled, this sandbox is created on the overlay (using OverlayFS) of the host`'s root file system -- it`'s basically a disposable snapshot.
 +
-You may need to bind mount more filesystems to the "`container`" if you have a more complicated setup, such as `/usr` and `/var` on different file systems or subvolumes.
+You may need to bind mount more filesystems to the sandbox if you have a more complicated setup, such as `/usr` and `/var` on different file systems or subvolumes.
 Refer to {bwrap} for available options.
-+
-This option is effective only when *use_overlayfs* is `"yes"`.
 
 *build_user*::
 Specifies the system user to switch to for loading {AKMBUILD} files and building modules.

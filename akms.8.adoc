@@ -8,6 +8,7 @@ ifdef::backend-manpage[]
 :AKMBUILD: pass:q[*AKMBUILD(5)*]
 :akms-conf: pass:q[*akms.conf(5)*]
 :apk: pass:q[*apk(8)*]
+:bwrap: pass:q[*bwrap(1)*]
 :glob: pass:q[*glob(7)*]
 :module-destdir: pass:q[/lib/modules/<__kernelver__>/kernel/extra/akms/]
 endif::[]
@@ -15,6 +16,7 @@ ifndef::backend-manpage[]
 :AKMBUILD: {man-uri}/AKMBUILD.5.adoc[AKMBUILD(5)]
 :akms-conf: {man-uri}/akms[akms.conf(5)]
 :apk: apk(8)
+:bwrap: https://www.mankier.com/1/bwrap[bwrap(1)]
 :glob: https://www.mankier.com/7/glob[glob(7)]
 :module-destdir: pass:q[`/lib/modules/<__kernelver__>/kernel/extra/akms/`]
 endif::[]
@@ -44,11 +46,13 @@ The concept is to have kernel modules automatically rebuilt when a new kernel ve
 AKMS is principally inspired by DKMS (Dynamic Kernel Module Support) used on many Linux distributions.
 AKMS has been designed specifically for Alpine Linux and {apk}; implemented with simplicity, reliability, and security in mind.
 
-One of the advantages of AKMS over DKMS is that you don`'t need to have all the dependencies for building modules permanently installed on the system.
+Builds are always executed under an unprivileged user inside a sandbox (using {bwrap}) with isolated Mount, IPC, PID, Network, UTS, Cgroup, and User (if possible) namespaces.
+
+Another advantage of AKMS over DKMS is that you don`'t need to have all the dependencies for building modules permanently installed on the system.
 If some dependencies are missing, they are automatically installed in a disposable overlay over your real root filesystem (using OverlayFS and bubblewrap).
 The original reason for using overlay was to avoid the limitation of the APK triggers -- they are executed inside a "`transaction`" that holds an exclusive repository lock.
 This means that no packages could be installed if *akms(8)* was executed by a trigger.
-Mounting a disposable overlay on top of "`/`" for building the modules overcomes this limitation and provides some benefits.
+Mounting a disposable overlay on top of "`/`" for building the modules overcomes this limitation and also provides other benefits.
 
 
 == ACTIONS
