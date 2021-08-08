@@ -464,7 +464,7 @@ build_and_install_module() (
 	$OPT_REBUILD && state=''
 
 	if [ "$state" != 'built' ] && [ "$state" != 'installed' ]; then
-		log info "Building module $modname $modver for kernel $kernel"
+		log info "Building module $modname/$modver for kernel $kernel"
 
 		write_state 'building'
 		install_makedepends "$kernel" "$MAKEDEPENDS $makedepends" && build_module || {
@@ -474,7 +474,7 @@ build_and_install_module() (
 		state='built'
 
 		[ "$ACTION" = build ] \
-			&& log info "Module $modname $modver for $kernel is built successfully"
+			&& log info "Module $modname/$modver for $kernel is built successfully"
 	fi
 
 	[ "$ACTION" = build ] && return
@@ -491,10 +491,10 @@ build_and_install_module() (
 		/sbin/depmod $kernel || {
 			err 'depmod failed'; return 1
 		}
-		log info "Module $modname $modver for $kernel installed successfully"
+		log info "Module $modname/$modver for $kernel installed successfully"
 
 	elif [ "$state" = 'installed' ]; then
-		log info "Module $modname $modver for $kernel is already installed"
+		log info "Module $modname/$modver for $kernel is already installed"
 	fi
 )  # ")" is not a typo!
 
@@ -567,7 +567,7 @@ build_module() {
 		LOG_LEVEL="$OPT_LOGLEVEL" \
 		MAKEFLAGS="$MAKEFLAGS"
 	if [ $? -ne 0 ]; then
-		err "Failed to build module $modname $modver for $kernel" "examine $builddir"
+		err "Failed to build module $modname/$modver for $kernel" "examine $builddir"
 		return 1
 	fi
 
@@ -646,7 +646,7 @@ uninstall_module() {
 
 	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
 
-	[ "$upgrade" ] || log info "Uninstalling module $modname ($modver) from kernel $kernel"
+	[ "$upgrade" ] || log info "Uninstalling module $modname/$modver from kernel $kernel"
 
 	local kofile koname
 	for kofile in "$statedir"/modules/*; do
@@ -714,13 +714,13 @@ unbuild_module() {
 
 	if [ "$state" = 'installed' ]; then
 		if ! $OPT_FORCE; then
-			log warn "Module $modname ($modver) is installed, skipping (use --force to override)"
+			log warn "Module $modname/$modver is installed, skipping (use --force to override)"
 			return 1
 		fi
 		rm -f ${statedir%/*}/installed
 	fi
 
-	log info "Unbuilding module $modname ($modver) for kernel $kernel"
+	log info "Unbuilding module $modname/$modver for kernel $kernel"
 
 	remove_statedir $statedir
 }
