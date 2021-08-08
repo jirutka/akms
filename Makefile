@@ -87,7 +87,7 @@ release: .check-git-clean | bump-version
 	@test -z "$(shell $(GIT) status --porcelain)" \
 		|| { echo 'You have uncommitted changes!' >&2; exit 1; }
 
-.PHONY: help man clean install uninstall bump-version release .check-git-clean
+.PHONY: help man clean install install-other install-man uninstall bump-version release .check-git-clean
 
 
 %.5: %.5.adoc
