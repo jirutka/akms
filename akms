@@ -531,15 +531,17 @@ install_makedepends() {
 
 # vars-in: modname srcdir kernel statedir built_modules
 build_module() {
-	local builddir="${BUILD_ROOT}$statedir/build"
+	local builddir="$statedir/build"
 	local kernel_srcdir="$KERNELS_SRC_DIR/linux-headers-$kernel"
 
 	rm -Rf "$builddir"
 	install -d -o "$BUILD_USER" "$builddir" || return 1
 
-	runas "$BUILD_USER" --sandbox "${BUILD_ROOT:-/}" \
+	runas "$BUILD_USER" \
+		--sandbox "${BUILD_ROOT:-/}" \
+		--bind "$builddir" "$builddir" \
 		srcdir="$srcdir" \
-		builddir="${builddir#$BUILD_ROOT}" \
+		builddir="$builddir" \
 		kernel_ver="$kernel" \
 		kernel_srcdir="$kernel_srcdir" \
 		LOG_LEVEL="$OPT_LOGLEVEL" \
@@ -559,6 +561,8 @@ build_module() {
 		fi
 		cp "$builddir/$ko" "$statedir"/modules/ || return 1
 	done
+
+	rm -Rf "$builddir"
 }
 
 # $1: location of the module's state directory
