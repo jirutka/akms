@@ -127,7 +127,6 @@ readonly TEMP_DIR="${temp_dir:-/tmp/$PROGNAME}/$(date +%s)"
 
 # Global mutable variables.
 LOG_ENABLED_LEVELS=' err warn info '
-BUILD_ROOT=
 
 
 # Prints help message.
@@ -480,13 +479,17 @@ install_makedepends() {
 	local kernel=$1
 	local makedepends=$2
 
-	local apk_opts=${BUILD_ROOT:+--root $BUILD_ROOT}
+	local apk_opts= build_root=
+	if [ -d "$TEMP_DIR"/overlay ]; then
+		build_root="$TEMP_DIR/overlay"
+		apk_opts="--root $build_root"
+	fi
 
 	[ "$makedepends" ] \
 		&& apk info $apk_opts -q --installed $makedepends \
 		&& makedepends=''
 
-	[ -d "${BUILD_ROOT}$KERNELS_SRC_DIR/linux-headers-$kernel" ] \
+	[ -d "${build_root}$KERNELS_SRC_DIR/linux-headers-$kernel" ] \
 		&& [ -z "$makedepends" ] \
 		&& return
 
@@ -500,7 +503,7 @@ install_makedepends() {
 		err "Package $kdevpkg is not available in the repositories!"; return 1
 	fi
 
-	if $OPT_OVERLAY && ! [ "$BUILD_ROOT" ]; then
+	if $OPT_OVERLAY && ! [ "$build_root" ]; then
 		log debug "Mounting overlay in $TEMP_DIR/overlay"
 
 		mount_rootfs_overlay "$TEMP_DIR/overlay" || {
@@ -508,16 +511,16 @@ install_makedepends() {
 			return 1
 		}
 
-		BUILD_ROOT="$TEMP_DIR/overlay"
-		apk_opts="--root $BUILD_ROOT"
+		build_root="$TEMP_DIR/overlay"
+		apk_opts="--root $build_root"
 
 		# Unlock the apk database.
-		echo '' > "$BUILD_ROOT"/lib/apk/db/lock
+		echo '' > "$build_root"/lib/apk/db/lock
 		# Ensure that /tmp is writable.
-		install -d -m 1777 -o root -g root "$BUILD_ROOT"/tmp
+		install -d -m 1777 -o root -g root "$build_root"/tmp
 	fi
 
-	log debug "Installing dependencies ${BUILD_ROOT:+"(in overlay)"}: $kdevpkg $makedepends"
+	log debug "Installing dependencies ${build_root:+"(in overlay)"}: $kdevpkg $makedepends"
 	apk add \
 		$apk_opts \
 		--virtual "$APK_VIRT" \
@@ -534,11 +537,14 @@ build_module() {
 	local builddir="$statedir/build"
 	local kernel_srcdir="$KERNELS_SRC_DIR/linux-headers-$kernel"
 
+	local build_root=
+	[ -d "$TEMP_DIR/overlay" ] && build_root="$TEMP_DIR/overlay"
+
 	rm -Rf "$builddir"
 	install -d -o "$BUILD_USER" "$builddir" || return 1
 
 	runas "$BUILD_USER" \
-		--sandbox "${BUILD_ROOT:-/}" \
+		--sandbox "${build_root:-/}" \
 		--bind "$builddir" "$builddir" \
 		srcdir="$srcdir" \
 		builddir="$builddir" \
