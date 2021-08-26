@@ -115,8 +115,8 @@ modver=5_git20210715
 built_modules='rtw89core.ko rtw89pci.ko'
 
 build() {
-  touch "$builddir"/Makefile
-	make $MAKEFLAGS -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+    touch "$builddir"/Makefile
+    make $MAKEFLAGS -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
 }
 ----
 
