@@ -845,6 +845,8 @@ setup_logger "$OPT_LOGLEVEL"
 readonly ACTION OPT_FORCE OPT_KEEP_UNINSTALLED OPT_KERNEL OPT_LOGLEVEL
 readonly OPT_OVERLAY OPT_REBUILD OPT_STATE OPT_SKIP_CLEANUP
 
+umask 022
+
 case "$ACTION" in
 	install | build | uninstall | unbuild)
 		if [ "$(id -u)" -ne 0 ]; then
