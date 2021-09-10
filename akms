@@ -506,6 +506,7 @@ install_makedepends() {
 	if $OPT_OVERLAY && ! [ "$build_root" ]; then
 		log debug "Mounting overlay in $TEMP_DIR/overlay"
 
+		install -d -m700 -o $BUILD_USER "$TEMP_DIR" || return 1
 		mount_rootfs_overlay "$TEMP_DIR/overlay" || {
 			err "Failed to mount OverlayFS on top of / at $TEMP_DIR/overlay"
 			return 1
