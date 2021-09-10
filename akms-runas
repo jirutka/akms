@@ -8,7 +8,9 @@ fi
 
 user=$1; shift
 
+base_env="PATH=/usr/bin:/bin SHELL=/bin/sh USER=$user"
 rootfs=''
+
 if [ "$1" = '--sandbox' ]; then
 	rootfs=$2; shift 2
 	bwrap_opts=${BWRAP_OPTS:-}
@@ -24,15 +26,15 @@ if [ "$1" = '--sandbox' ]; then
 		echo 'akms-runas: missing <cmd>'; exit 1
 	fi
 
-	exec /bin/su -l "$user" -s /bin/sh -c 'exec /usr/bin/bwrap "$@"' -- -- \
+	exec /bin/su "$user" -s /bin/sh -c 'exec /usr/bin/bwrap "$@"' -- -- \
 		--unshare-all \
 		--bind "$rootfs" / \
 		--proc /proc \
 		--dev-bind /dev /dev \
 		--die-with-parent \
 		$bwrap_opts \
-		-- /usr/bin/env "$@"
+		-- /usr/bin/env -i $base_env "$@"
 else
 	[ "$1" = '--' ] && shift
-	exec /bin/su -l "$user" -s /bin/sh -c 'exec /usr/bin/env "$@"' -- -- "$@"
+	exec /bin/su "$user" -s /bin/sh -c 'exec /usr/bin/env -i "$@"' -- -- $base_env "$@"
 fi
