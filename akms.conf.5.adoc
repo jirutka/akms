@@ -7,12 +7,14 @@ Jakub Jirutka
 ifdef::backend-manpage[]
 :AKMBUILD: pass:q[*AKMBUILD(5)*]
 :akms: pass:q[*akms(8)*]
+:apk: pass:q[*apk(8)*]
 :bwrap: pass:q[*bwrap(1)*]
 :make: pass:q[*make(1)*]
 endif::[]
 ifndef::backend-manpage[]
 :AKMBUILD: {man-uri}/AKMBUILD.5.adoc[AKMBUILD(5)]
 :akms: {man-uri}/akms.8.adoc[akms(8)]
+:apk: pass:q[`apk(8)`]
 :bwrap: https://www.mankier.com/1/bwrap[bwrap(1)]
 :make: https://www.mankier.com/1/make[make(1)]
 endif::[]
@@ -54,7 +56,7 @@ The default value is `"akms"`.
 
 *disable_trigger*::
 This option allows to disable the APK trigger installed by the `akms` package.
-This trigger automatically builds each kernel module with an {AKMBUILD} file installed via `apk(8)` into the *modules_srcdir*.
+This trigger automatically builds each kernel module with an {AKMBUILD} file installed via {apk} into the *modules_srcdir*.
 +
 The default value is `"no"`.
 
