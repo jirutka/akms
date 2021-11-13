@@ -13,7 +13,7 @@ endif::[]
 ifndef::backend-manpage[]
 :akms: {man-uri}/akms.8.adoc[akms(8)]
 :akms-conf: {man-uri}/akms.conf.5.adoc[akms.conf(5)]
-:APKBUILD: `APKBUILD(5)`
+:APKBUILD: pass:q[`APKBUILD(5)`]
 :make: https://www.mankier.com/1/make[make(1)]
 endif::[]
 
