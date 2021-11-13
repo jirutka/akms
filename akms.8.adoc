@@ -48,6 +48,9 @@ AKMS has been designed specifically for Alpine Linux and {apk}; implemented with
 
 Builds are always executed under an unprivileged user inside a sandbox (using {bwrap}) with isolated Mount, IPC, PID, Network, UTS, Cgroup, and User (if possible) namespaces.
 
+The built kernel objects are automatically compressed with the same compression format as other modules installed with the given kernel.
+The supported formats are: "`gz`", "`xz`" (requires `xz` tool), and "`zst`" (requires `zstd` tool).
+
 Another advantage of AKMS over DKMS is that you don`'t need to have all the dependencies for building modules permanently installed on the system.
 If some dependencies are missing, they are automatically installed in a disposable overlay over your real root filesystem (using OverlayFS and bubblewrap).
 The original reason for using overlay was to avoid the limitation of the APK triggers -- they are executed inside a "`transaction`" that holds an exclusive repository lock.

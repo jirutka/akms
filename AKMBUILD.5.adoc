@@ -54,7 +54,7 @@ This is typically the version of the APK package providing the source code of th
 The same rules as for the APKBUILD `pkgver` applies.
 
 *built_modules*::
-Specifies a space-separated list of kernel object files, as relative paths from the directory containing *AKMBUILD*, that are expected to be built and eventually installed into the kernel modules tree.
+Specifies a space-separated list of kernel object files (with `.ko` suffix), as relative paths from the directory containing *AKMBUILD*, that are expected to be built and eventually installed into the kernel modules tree.
 
 
 === Optional Variables

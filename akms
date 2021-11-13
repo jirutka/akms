@@ -365,6 +365,41 @@ find_statedirs() {
 	done
 }
 
+# Determines the compression format used for modules installed with kernel $1.
+#
+# $1: kernel release (e.g. 5.10.53-0-lts)
+# stdout: "gz", "xz", "zst", or "" (no compression)
+determine_modules_compress_format() {
+	local kernel=$1
+	local modules_dep="$MODULES_BASE_DIR/$kernel/modules.dep"
+
+	local ext; for ext in zst gz xz; do
+		if grep -Fq ".ko.$ext:" "$modules_dep" 2>/dev/null; then
+			echo $ext
+			return 0
+		fi
+	done
+	echo ''
+}
+
+# Compresses the given file $1 using the specified compression format.
+# The compressed file will be written at path `$1.$2` and the original file
+# will be removed.
+#
+# $1: path to the uncompressed file
+# $2: "gz", "xz", or "zst"
+compress() {
+	local filepath=$1
+	local format=$2
+
+	case "$format" in
+		gz) gzip -9 "$filepath";;
+		xz) xz -9 "$filepath";;
+		zst) zstd -q -T0 --rm -19 "$filepath";;
+		*) err "Unsupported compression format: $format"; return 1;;
+	esac
+}
+
 
 #=================================  Install  ==================================
 
@@ -562,9 +597,18 @@ build_module() {
 	mkdir -p "$statedir"/modules
 	rm -f "$statedir"/modules/* 2>/dev/null ||:
 
+	local comp_format=$(determine_modules_compress_format $kernel)
+
 	local ko; for ko in $built_modules; do
 		if ! [ -f "$builddir/$ko" ]; then
 			err "[$modname] Missing file $ko!"; return 1
+		fi
+		if [ "$comp_format" ]; then
+			if compress "$builddir/$ko" "$comp_format"; then
+				ko="$ko.$comp_format"
+			else
+				log warn "[$modname] Unable to compress $ko with $comp_format!"
+			fi
 		fi
 		cp "$builddir/$ko" "$statedir"/modules/ || return 1
 	done
