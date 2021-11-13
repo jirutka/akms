@@ -15,7 +15,7 @@ endif::[]
 ifndef::backend-manpage[]
 :AKMBUILD: {man-uri}/AKMBUILD.5.adoc[AKMBUILD(5)]
 :akms-conf: {man-uri}/akms[akms.conf(5)]
-:apk: apk(8)
+:apk: https://www.mankier.com/8/apk[apk(8)]
 :bwrap: https://www.mankier.com/1/bwrap[bwrap(1)]
 :glob: https://www.mankier.com/7/glob[glob(7)]
 :module-destdir: pass:q[`/lib/modules/<__kernelver__>/kernel/extra/akms/`]
