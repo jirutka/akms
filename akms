@@ -631,7 +631,7 @@ install_module() {
 			err "[$modname] No files found in $statedir/modules!"; return 1
 		fi
 		log debug "[$modname] Installing ${kofile##*/} to $destdir/"
-		install -D -m755 -t "$destdir"/ $kofile || return 1
+		install -D -m644 -t "$destdir"/ $kofile || return 1
 	done
 }
 
