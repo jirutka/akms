@@ -35,7 +35,7 @@ See the following manual pages for more information.
 
 == Installation
 
-Install package {proj-name} from the Alpine’s Edge community repository:
+Install package https://pkgs.alpinelinux.org/packages?name={proj-name}[{proj-name}] on Alpine Linux v3.15 or later:
 
 [source, sh, subs="+attributes"]
 apk add {proj-name}
