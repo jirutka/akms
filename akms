@@ -326,7 +326,7 @@ load_akmbuild() {
 			kernel_ver="${kernel:-}" \
 			kernel_srcdir="${kernel_srcdir:-}" \
 			/bin/sh -c ". '$akmbuild'; set" \
-		| grep -E "^(${AKMBUILD_VARS// /|})="
+		| grep -E "^($(echo $AKMBUILD_VARS | tr ' ' '|'))="
 	)
 	if [ $? -ne 0 ]; then
 		err "Failed to evaluate $akmbuild"; return 1
