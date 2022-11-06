@@ -167,7 +167,7 @@ cleanup() {
 # $*: message
 # stderr: decorated message
 log() {
-	local level=$1; shift
+	local level="$1"; shift
 
 	case "$LOG_ENABLED_LEVELS" in
 		*" $level "*) ;;  # continue
@@ -189,7 +189,7 @@ err() {
 # $1: this log level and higer will be enabled (err, warn, info, or debug)
 # vars-out: LOG_ENABLED_LEVELS
 setup_logger() {
-	local level=$1
+	local level="$1"
 
 	local l levels=
 	for l in err warn info debug; do
@@ -220,7 +220,7 @@ runas() {
 # $1: location of the module's state directory
 # stdout: space-separated triplet: kernel modname modver
 statedir_to_triplet() {
-	local statedir=$(readlink -f "$1")
+	local statedir="$(readlink -f "$1")"
 
 	echo "${statedir#$STATE_DIR}" | tr / ' '
 }
@@ -228,10 +228,10 @@ statedir_to_triplet() {
 # $1: kernel release (e.g. 5.10.53-0-lts)
 # stdout: space-separated parts: pkgver pkgrel flavor
 split_kernel_ver() {
-	local kernel=$1
-	local ver=${kernel%%-*}
-	local rel=${kernel#*-}; rel=${rel%%-*}
-	local flavor=${kernel#$ver-$rel-}
+	local kernel="$1"
+	local ver="${kernel%%-*}"
+	local rel="${kernel#*-}"; rel="${rel%%-*}"
+	local flavor="${kernel#$ver-$rel-}"
 
 	echo "$ver" "$rel" "$flavor"
 }
@@ -259,8 +259,8 @@ current_installed_kernel() {
 # status: 0 if the package exists, 1 otherwise
 # stderr: error output from apk(1)
 is_pkg_avail() {
-	local name=${1%=*}
-	local ver=${1#*=}
+	local name="${1%=*}"
+	local ver="${1#*=}"
 
 	apk list -Ua "$name" | grep -qw "$name-$ver"
 }
@@ -269,7 +269,7 @@ is_pkg_avail() {
 #
 # $1: path where to mount the overlay
 mount_rootfs_overlay() {
-	local mountdir=$1
+	local mountdir="$1"
 
 	mkdir -p "$mountdir"/upperdir "$mountdir"/workdir
 	mount -t overlay overlay \
@@ -283,8 +283,8 @@ mount_rootfs_overlay() {
 # $2: location of the module's statedir; defaults to $statedir
 # vars-in: statedir (optional)
 write_state() {
-	local state=$1
-	local statedir=${2:-$statedir}
+	local state="$1"
+	local statedir="${2:-$statedir}"
 
 	mkdir -p "$statedir"
 	echo "$state" > "$statedir"/state
@@ -295,7 +295,7 @@ write_state() {
 # $1: location of the module's state directory; defaults to $statedir
 # stdout: the state or an empty string if not set
 read_state() {
-	local statedir=${1:-$statedir}
+	local statedir="${1:-$statedir}"
 
 	cat "$statedir"/state 2>/dev/null || echo ''
 }
@@ -308,7 +308,7 @@ read_state() {
 # vars-in: kernel (optional), kernel_srcdir (optional)
 # env-out: see $AKMBUILD_VARS
 load_akmbuild() {
-	local akmbuild=$1
+	local akmbuild="$1"
 
 	if ! [ -r "$akmbuild" ]; then
 		err "$akmbuild does not exist or not readable!"; return 1
@@ -350,9 +350,9 @@ load_akmbuild() {
 # status: 1 if no such state directory was found, 0 otherwise
 # stdout: newline-separated list of module state directories
 find_statedirs() {
-	local kernel=$1
-	local modname=$2
-	local modver=${3:-}
+	local kernel="$1"
+	local modname="$2"
+	local modver="${3:-}"
 
 	[ "$kernel" = all ] && kernel=
 	[ "$modname" = all ] && modname=
@@ -370,7 +370,7 @@ find_statedirs() {
 # $1: kernel release (e.g. 5.10.53-0-lts)
 # stdout: "gz", "xz", "zst", or "" (no compression)
 determine_modules_compress_format() {
-	local kernel=$1
+	local kernel="$1"
 	local modules_dep="$MODULES_BASE_DIR/$kernel/modules.dep"
 
 	local ext; for ext in zst gz xz; do
@@ -389,8 +389,8 @@ determine_modules_compress_format() {
 # $1: path to the uncompressed file
 # $2: "gz", "xz", or "zst"
 compress() {
-	local filepath=$1
-	local format=$2
+	local filepath="$1"
+	local format="$2"
 
 	case "$format" in
 		gz) gzip -9 "$filepath";;
@@ -422,7 +422,7 @@ action_install() {
 		};;
 	esac
 
-	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
+	local kernel="${OPT_KERNEL:-$(current_installed_kernel || uname -r)}"
 	[ "$kernel" = all ] && kernel=
 
 	local rc=0 srcdir
@@ -444,7 +444,7 @@ action_build() {
 # status: 1 if no source directory was found (and $1 is not "all"), 0 otherwise
 # stdout: newline-separated list of module source directories
 find_srcdirs() {
-	local name=${1:-}
+	local name="${1:-}"
 
 	[ "$name" = all ] && name=
 
@@ -511,8 +511,8 @@ build_and_install_module() (
 # $1: kernel release (e.g. 5.10.53-0-lts)
 # $2: ws-separated list of additional dependencies to install
 install_makedepends() {
-	local kernel=$1
-	local makedepends=$2
+	local kernel="$1"
+	local makedepends="$2"
 
 	local apk_opts= build_root=
 	if [ -d "$TEMP_DIR"/overlay ]; then
@@ -528,10 +528,10 @@ install_makedepends() {
 		&& [ -z "$makedepends" ] \
 		&& return
 
-	local kdevpkg=$(
+	local kdevpkg="$(
 		set -- $(split_kernel_ver "$kernel")
 		echo linux-$3-dev=$1-r$2
-	)
+	)"
 
 	# Fail fast if kernel dev package is not available.
 	if ! is_pkg_avail "$kdevpkg"; then
@@ -597,7 +597,7 @@ build_module() {
 	mkdir -p "$statedir"/modules
 	rm -f "$statedir"/modules/* 2>/dev/null ||:
 
-	local comp_format=$(determine_modules_compress_format $kernel)
+	local comp_format="$(determine_modules_compress_format $kernel)"
 
 	local ko; for ko in $built_modules; do
 		if ! [ -f "$builddir/$ko" ]; then
@@ -619,7 +619,7 @@ build_module() {
 # $1: location of the module's state directory
 # vars-in: see $AKMBUILD_VARS
 install_module() {
-	local statedir=$1
+	local statedir="$1"
 	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
 
 	if [ -d ${statedir%/*}/installed ]; then
@@ -649,7 +649,7 @@ action_uninstall() {
 		*/*) modname=${1%%/*}; modver=${1#*/};;
 		*) modname=$1; modver='installed';;
 	esac
-	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
+	local kernel="${OPT_KERNEL:-$(current_installed_kernel || uname -r)}"
 
 	local statedirs
 	statedirs=$(find_statedirs "$kernel" "$modname" "$modver") || {
@@ -672,11 +672,11 @@ action_uninstall() {
 # $2: upgrade mode - if not empty, the info message "Uninstalling module ..."
 #     will not be logged
 uninstall_module() {
-	local statedir=$1
-	local upgrade=${2:-}
+	local statedir="$1"
+	local upgrade="${2:-}"
 
 	set -- $(statedir_to_triplet "$statedir")
-	local kernel=$1 modname=$2 modver=$3
+	local kernel="$1" modname="$2" modver="$3"
 
 	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
 
@@ -718,7 +718,7 @@ action_unbuild() {
 		*/*) modname=${1%%/*}; modver=${1#*/};;
 		*) modname=$1; modver='';;
 	esac
-	local kernel=${OPT_KERNEL:-$(current_installed_kernel || uname -r)}
+	local kernel="${OPT_KERNEL:-$(current_installed_kernel || uname -r)}"
 
 	local found=false rc=0 statedir
 	for statedir in $(find_statedirs "$kernel" "$modname" "$modver"); do
@@ -740,11 +740,11 @@ action_unbuild() {
 #
 # $1: location of the module's state directory
 unbuild_module() {
-	local statedir=$1
-	local state=$(read_state "$statedir")
+	local statedir="$1"
+	local state="$(read_state "$statedir")"
 
 	set -- $(statedir_to_triplet "$statedir")
-	local kernel=$1 modname=$2 modver=$3
+	local kernel="$1" modname="$2" modver="$3"
 
 	if [ "$state" = 'installed' ]; then
 		if ! $OPT_FORCE; then
@@ -763,8 +763,8 @@ unbuild_module() {
 #
 # $1: location of the module's state directory
 remove_statedir() {
-	local statedir=$1
-	local parentdir=${statedir%/*}
+	local statedir="$1"
+	local parentdir="${statedir%/*}"
 
 	rm -Rf "$statedir"
 
@@ -806,10 +806,10 @@ action_status() {
 
 # $1: location of the module's state directory
 verify_installed_files() {
-	local statedir=$1
+	local statedir="$1"
 
 	set -- $(statedir_to_triplet $statedir)
-	local kernel=$1 modname=$2 modver=$3
+	local kernel="$1" modname="$2" modver="$3"
 
 	local destdir="$MODULES_BASE_DIR/$kernel$MODULES_DEST_PATH"
 
