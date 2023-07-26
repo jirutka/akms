@@ -225,13 +225,14 @@ statedir_to_triplet() {
 	echo "${statedir#$STATE_DIR}" | tr / ' '
 }
 
-# $1: kernel release (e.g. 5.10.53-0-lts)
+# $1: kernel release (e.g. 5.10.53-rc3-0-lts)
 # stdout: space-separated parts: pkgver pkgrel flavor
 split_kernel_ver() {
 	local kernel="$1"
-	local ver="${kernel%%-*}"
-	local rel="${kernel#*-}"; rel="${rel%%-*}"
-	local flavor="${kernel#$ver-$rel-}"
+	local flavor="${kernel##*-}"
+	local ver_rel="${kernel%-*}"
+	local ver="${ver_rel%-*}"
+	local rel="${ver_rel##*-}"
 
 	echo "$ver" "$rel" "$flavor"
 }
