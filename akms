@@ -578,7 +578,8 @@ build_module() {
 	[ -d "$TEMP_DIR/overlay" ] && build_root="$TEMP_DIR/overlay"
 
 	rm -Rf "$builddir"
-	install -d -o "$BUILD_USER" "$builddir" || return 1
+	cp -a "$srcdir/" "$builddir" || return 1
+	chown -R "$BUILD_USER" "$builddir" || return 1
 
 	runas "$BUILD_USER" \
 		--sandbox "${build_root:-/}" \
