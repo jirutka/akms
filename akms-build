@@ -9,11 +9,11 @@ readonly builddir kernel_srcdir kernel_ver LOG_LEVEL
 
 cd "$builddir"
 
-. "$srcdir"/AKMBUILD
+. AKMBUILD
 
 default_build() {
 	touch "$builddir"/Makefile
-	make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+	make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" modules
 }
 
 if [ $LOG_LEVEL = warn ]; then

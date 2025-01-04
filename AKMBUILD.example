@@ -15,5 +15,5 @@ built_modules='rtw89core.ko rtw89pci.ko'
 # A custom build function may be defined. The following is the default_build.
 build() {
 	touch "$builddir"/Makefile
-	make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+	make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" modules
 }

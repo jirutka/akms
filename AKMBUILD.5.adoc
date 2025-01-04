@@ -84,7 +84,7 @@ This directory is read-only.
 
 *builddir*::
 Location of the directory where the module should be built.
-It is initially empty and it is the only writtable directory for building the module.
+It is initialized with a copy of the *srcdir* and it is the only writtable directory for building the module.
 
 *MAKEFLAGS*::
 Flags to give to make(1) to build the module.
@@ -96,13 +96,13 @@ The default value of this variable can be specified in {akms-conf}.
 The following functions MAY be overridden by the author of the *AKMBUILD* file.
 
 *build*::
-Builds the kernel module(s) in the *builddir* from the source files located in the *srcdir* directory.
+Builds the kernel module(s) in the *builddir*.
 +
 The default implementation calls function *default_build*:
 +
 [source, sh]
 touch "$builddir"/Makefile
-make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+make ${MAKEFLAGS:-} -C "$kernel_srcdir" M="$builddir" modules
 
 
 == EXAMPLES
@@ -116,7 +116,7 @@ built_modules='rtw89core.ko rtw89pci.ko'
 
 build() {
     touch "$builddir"/Makefile
-    make $MAKEFLAGS -C "$kernel_srcdir" M="$builddir" src="$srcdir" modules
+    make $MAKEFLAGS -C "$kernel_srcdir" M="$builddir" modules
 }
 ----
 
