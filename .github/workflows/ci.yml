@@ -1,0 +1,64 @@
+name: CI
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: 0 0 * * 0  # run every week
+
+jobs:
+  smoke-test:
+    # NOTE: ubuntu-24.04 doesn't work here,
+    #  see https://etbe.coker.com.au/2024/04/24/ubuntu-24-04-bubblewrap/
+    runs-on: ubuntu-22.04
+    # NOTE: We cannot use jirutka/setup-alpine because bubblewrap doesn't work inside chroot.
+    container:
+      image: alpine:latest
+      options: --privileged
+    steps:
+      - name: Checkout jirutka/akms
+        uses: actions/checkout@v4
+
+      - name: Checkout umlaeute/v4l2loopback
+        uses: actions/checkout@v4
+        with:
+          path: v4l2loopback
+          repository: umlaeute/v4l2loopback
+
+      - name: Install linux-lts
+        run: apk add linux-lts linux-firmware-none
+
+      - name: Install akms dependencies
+        run: apk add asciidoctor bubblewrap cmd:depmod make
+
+      - name: Install akms
+        run: |
+          make install prefix=/usr
+          adduser -S -D -H -h /var/lib/akms -s /bin/sh -G nogroup akms
+
+      - name: Create AKMBUILD file
+        run: |
+          cat > v4l2loopback/AKMBUILD <<EOF
+          modname=v4l2loopback
+          modver=1-r0
+          built_modules='v4l2loopback.ko'
+          EOF
+
+      - name: Store kernel version in $KERNEL
+        run: echo "KERNEL=$(cat /usr/share/kernel/lts/kernel.release)" >> "$GITHUB_ENV"
+
+      # NOTE: We cannot create overlay on top of / inside docker container running on OverlayFS.
+      - run: akms install --kernel "$KERNEL" --no-overlay --verbose $PWD/v4l2loopback
+
+      - name: akms status
+        run: akms status | grep -x "$KERNEL\tv4l2loopback\t1-r0\tinstalled"
+
+      - run: akms uninstall --kernel "$KERNEL" --keep v4l2loopback
+
+      - name: akms status
+        run: akms status | grep -x "$KERNEL\tv4l2loopback\t1-r0\tbuilt"
+
+      - run: akms unbuild --kernel "$KERNEL" v4l2loopback
+
+      - name: akms status
+        run: |
+          { akms status 2>&1 || true; } | grep -x 'akms: No modules found'
