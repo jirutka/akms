@@ -521,21 +521,25 @@ install_makedepends() {
 		apk_opts="--root $build_root"
 	fi
 
+	# If all $makedepends are installed, empty $makedepends.
 	[ "$makedepends" ] \
 		&& apk info $apk_opts -q --installed $makedepends \
 		&& makedepends=''
-
-	[ -d "${build_root}$KERNELS_SRC_DIR/linux-headers-$kernel" ] \
-		&& [ -z "$makedepends" ] \
-		&& return
 
 	local kdevpkg="$(
 		set -- $(split_kernel_ver "$kernel")
 		echo linux-$3-dev=$1-r$2
 	)"
 
+	# If linux headers for $kernel are installed, empty $kdevpkg.
+	[ -d "${build_root}$KERNELS_SRC_DIR/linux-headers-$kernel" ] \
+		&& kdevpkg=''
+
+	# If all $makedepends and linux headers are installed, we're done here.
+	[ -z "$makedepends" ] && [ -z "$kdevpkg" ] && return
+
 	# Fail fast if kernel dev package is not available.
-	if ! is_pkg_avail "$kdevpkg"; then
+	if [ "$kdevpkg" ] && ! is_pkg_avail "$kdevpkg"; then
 		err "Package $kdevpkg is not available in the repositories!"; return 1
 	fi
 
