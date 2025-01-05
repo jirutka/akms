@@ -99,7 +99,7 @@
 set -uo pipefail
 
 readonly PROGNAME='akms'
-readonly VERSION='0.2.1'
+readonly VERSION='0.3.0'
 
 readonly CFG_FILE='/etc/akms.conf'
 readonly KERNELS_SRC_DIR='/usr/src'
