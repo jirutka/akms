@@ -26,7 +26,7 @@ if [ "$1" = '--sandbox' ]; then
 		echo 'akms-runas: missing <cmd>'; exit 1
 	fi
 
-	exec /bin/su "$user" -s /bin/sh -c 'exec /usr/bin/bwrap "$@"' -- -- \
+	exec /bin/su -s /bin/sh -c 'exec /usr/bin/bwrap "$@"' "$user" -- -- \
 		--unshare-all \
 		--bind "$rootfs" / \
 		--proc /proc \
@@ -36,5 +36,5 @@ if [ "$1" = '--sandbox' ]; then
 		-- /usr/bin/env -i $base_env "$@"
 else
 	[ "$1" = '--' ] && shift
-	exec /bin/su "$user" -s /bin/sh -c 'exec /usr/bin/env -i "$@"' -- -- $base_env "$@"
+	exec /bin/su -s /bin/sh -c 'exec /usr/bin/env -i "$@"' "$user" -- -- $base_env "$@"
 fi
