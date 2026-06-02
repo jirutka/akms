@@ -64,6 +64,11 @@
 #          created on top of /, or on the host system. Default is to use overlay
 #          unless disabled in /etc/akms.conf.
 #
+#        --[no-]sandbox
+#          Whether to install build dependencies and build modules in a sandbox
+#          using bubblewrap. Default is to use sandbox unless disabled in
+#          /etc/akms.conf.
+#
 #        --skip-cleanup
 #          Don't unmount and delete root overlay used for building and don't
 #          uninstall build dependencies.
@@ -119,7 +124,7 @@ MAKEFLAGS="-j$(nproc)"
 
 readonly BUILD_USER=${build_user:-akms}
 readonly BWRAP_OPTS=${bubblewrap_opts:-}
-readonly MAKEDEPENDS=${makedepends:-build-base}
+readonly MAKEDEPENDS=${makedepends:-}
 readonly MAKEFLAGS
 readonly MODULES_DEST_PATH=${modules_dest_path:-/kernel/extra/akms}
 readonly MODULES_SRC_DIR=${modules_srcdir:-/usr/src}
@@ -521,6 +526,11 @@ install_makedepends() {
 		apk_opts="--root $build_root"
 	fi
 
+	# if any of these files are missing, it means `build-base` needs installing
+	if [ ! -f "/usr/bin/readelf" ] || [ ! -f "/usr/bin/file" ] || [ ! -f "/usr/bin/gcc" ] || [ ! -f "/usr/bin/g++" ] || [ ! -f "/usr/bin/make" ] || [ ! -f "/usr/bin/patch" ]; then
+		makedepends="$makedepends build-base"
+	fi
+
 	# If all $makedepends are installed, empty $makedepends.
 	[ "$makedepends" ] \
 		&& apk info $apk_opts -q --installed $makedepends \
@@ -581,6 +591,9 @@ build_module() {
 	local build_root=
 	[ -d "$TEMP_DIR/overlay" ] && build_root="$TEMP_DIR/overlay"
 
+	local runas_sandbox=
+	$OPT_SANDBOX && runas_sandbox=true
+
 	rm -Rf "$builddir"
 	# NOTE: The module sources must be available in the builddir, see
 	#  https://gitlab.alpinelinux.org/alpine/aports/-/issues/16718.
@@ -588,8 +601,7 @@ build_module() {
 	chown -R "$BUILD_USER" "$builddir" || return 1
 
 	runas "$BUILD_USER" \
-		--sandbox "${build_root:-/}" \
-		--bind "$builddir" "$builddir" \
+		${runas_sandbox:+--sandbox "${build_root:-/}" --bind "$builddir" "$builddir"} \
 		srcdir="$srcdir" \
 		builddir="$builddir" \
 		kernel_ver="$kernel" \
@@ -857,13 +869,14 @@ OPT_KEEP_UNINSTALLED=$(to_bool "${keep_uninstalled:-false}")
 OPT_KERNEL=
 OPT_LOGLEVEL=${log_level:-info}
 OPT_OVERLAY=$(to_bool "${use_overlayfs:-true}")
+OPT_SANDBOX=$(to_bool "${use_sandbox:-true}")
 OPT_REBUILD=false
 OPT_STATE='all'
 OPT_SKIP_CLEANUP=false
 
 opts=$(getopt -n $PROGNAME \
 	-o fKk:qrs:vVh \
-	-l force,keep,no-keep,kernel:,overlay,no-overlay,quiet,rebuild,skip-cleanup,state:,verbose,version,help \
+	-l force,keep,no-keep,kernel:,overlay,no-overlay,sandbox,no-sandbox,quiet,rebuild,skip-cleanup,state:,verbose,version,help \
 	-- "$@") || exit 1
 eval set -- "$opts"
 
@@ -877,6 +890,8 @@ while [ $# -gt 0 ]; do
 		-q | --quiet) OPT_LOGLEVEL='warn';;
 		     --overlay) OPT_OVERLAY=true;;
 		     --no-overlay) OPT_OVERLAY=false;;
+		     --sandbox) OPT_SANDBOX=true;;
+		     --no-sandbox) OPT_SANDBOX=false;;
 		-r | --rebuild) OPT_REBUILD=true;;
 		     --skip-cleanup) OPT_SKIP_CLEANUP=true;;
 		-s | --state) OPT_STATE=$2; n=2;;
@@ -895,7 +910,7 @@ fi
 setup_logger "$OPT_LOGLEVEL"
 
 readonly ACTION OPT_FORCE OPT_KEEP_UNINSTALLED OPT_KERNEL OPT_LOGLEVEL
-readonly OPT_OVERLAY OPT_REBUILD OPT_STATE OPT_SKIP_CLEANUP
+readonly OPT_OVERLAY OPT_SANDBOX OPT_REBUILD OPT_STATE OPT_SKIP_CLEANUP
 
 umask 022
 

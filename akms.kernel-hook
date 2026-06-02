@@ -17,6 +17,12 @@ if [ "$OLD_VERSION" ]; then
 	fi
 fi
 if [ "$NEW_VERSION" ]; then
-	akms install -k "$NEW_VERSION-$FLAVOR" all || rc=1
+	if [ "$(stat -c %d:%i /)" != "$(stat -c %d:%i /proc/1/root/.)" ]; then
+		echo ">>> AKMS is running in chroot environment, disabling overlay and sandboxing"
+		echo ">>> Please make sure module build dependencies are already installed"
+		akms install --no-overlay --no-sandbox -k $NEW_VERSION-$FLAVOR all || rc=1
+	else
+		akms install -k $NEW_VERSION-$FLAVOR all || rc=1
+	fi
 fi
 exit $rc

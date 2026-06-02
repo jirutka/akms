@@ -138,6 +138,10 @@ Rebuild (and install) the module even if it has been already built.
 Whether to install the build dependencies into the root overlay created on top of `/`, or on the host system.
 This option overrides parameter *use_overlayfs* specified in {akms-conf} (enabled by default).
 
+*--[no-]sandbox*::
+Whether to install build dependencies and build modules in a sandbox using bubblewrap. Default is to use sandbox unless disabled in /etc/akms.conf.
+This option overrides parameter *use_sandbox* specified in {akms-conf} (enabled by default)
+
 *--skip-cleanup*::
 Do not unmount and delete the root overlay used for building and do not uninstall the build dependencies.
 

@@ -114,6 +114,9 @@ Specifies whether to install the module`'s build dependencies into a disposable 
 +
 The default value is `"yes"`.
 
+*use_sandbox*::
+Specifies whether to install the module`'s build dependencies into a sanbox or directly on the host system.
+
 *MAKEFLAGS*::
 Specifies the flags to be passed to `make(1)` to build a kernel module.
 +
